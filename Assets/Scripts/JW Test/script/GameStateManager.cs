@@ -17,7 +17,7 @@ public class GameStateManager : Singleton<GameStateManager>
 
     [SerializeField] private GameObject _nextStageRecognitionPlanePrefab; //tag "NextStageRecognition"
     [SerializeField] private List<GameObject> _stagePrefabs; //스테이지별 프리팹들
-    [SerializeField] private List<AudioClip> audioBGMs; //오디오 수정
+    [SerializeField] private List<AudioClip> audioBGMs;
 
 
 

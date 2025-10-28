@@ -33,6 +33,10 @@ public class MoveComponent : MonoBehaviour
     [SerializeField] private float _flipCooldown = 1f;
 
 
+    //251028 물체 충돌시 힘이 가해지는 것을 초기화
+    private Rigidbody _rigidbody;
+
+
     private float _currentFlipCooldown = 0f;
 
     //[SerializeField] private float _xBoundValue = 2f;
@@ -46,6 +50,8 @@ public class MoveComponent : MonoBehaviour
     //[SerializeField] private float _dashBarrelRollSpeed = 5f;
     //[SerializeField] private float _dashColliderShrinkFactor = 2f;
     //[SerializeField] private float _dashAfterDashShrinkRevertDelay = 0.1f;
+
+
 
 
     private InputComponent _inputComponent;
@@ -75,6 +81,19 @@ public class MoveComponent : MonoBehaviour
     private bool _isChangingMode = false;
 
     //_isChangingMode = true;
+
+
+    private void OnCollisionStay(Collision collision)
+    {
+        if (_rigidbody != null)
+        
+        {
+            _rigidbody.velocity = Vector3.zero;
+            _rigidbody.angularVelocity = Vector3.zero;
+
+        }
+    }
+
 
 
     void ChangeFlatMode()
@@ -171,6 +190,8 @@ public class MoveComponent : MonoBehaviour
 
     void Start()
     {
+        _rigidbody = GetComponent<Rigidbody>();
+
         _animator = transform.Find("Idle_0").GetComponent<Animator>();
         _inputComponent = GetComponent<InputComponent>();
         StartCoroutine(CheckAndDodge());

@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
+    [SerializeField] private GameObject _attackTwoFireballPrefab;
+    
     [SerializeField] private float _playerHealth = 100f;
     
     [SerializeField] private float _attackOneRange = 10f;
@@ -17,6 +19,12 @@ public class Player : MonoBehaviour
     private float _currentAttackOneCooldown = 0f;
     private float _currentAttackTwoCooldown = 0f;
 
+    private List<GameObject> _fireballPool = new List<GameObject>();
+
+
+
+
+
     private MoveComponent _moveComponent;
     private Animator _animator;
     public void TakeDamage(float damageAmount)
@@ -28,7 +36,7 @@ public class Player : MonoBehaviour
         {
             PlayerDeath();
         }
-        StartCoroutine(TakeDamage());
+        StartCoroutine(TakeDamageCoroutine());
     }
 
 
@@ -45,7 +53,7 @@ public class Player : MonoBehaviour
     {
         GameStateManager.Instance.IsPlayerAlive = false;
     }
-    IEnumerator TakeDamage()
+    IEnumerator TakeDamageCoroutine()
     {
         _moveComponent.IsTakingDamage = true;
         _animator.SetBool("_isTakingDamage", true);
@@ -68,8 +76,20 @@ public class Player : MonoBehaviour
 
         yield return new WaitForSeconds(_attackOneDuration);
 
-        if (Physics.Raycast(transform.position, transform.right, out raycastHit, _attackOneRange))
+        if (Physics.Raycast(transform.position+ Vector3.up*0.5f, transform.right, out raycastHit, _attackOneRange))
         {
+            Debug.Log(raycastHit.collider.name);
+            
+            //if (raycastHit.collider.CompareTag("Enemy"))
+            //{
+            //    Enemy enemy = raycastHit.collider.GetComponent<Enemy>();
+            //    if (enemy != null)
+            //    {
+            //        enemy.TakeDamage(25f);
+            //    }
+            //}
+
+
             //Enemy enemy = raycastHit.collider.GetComponent<Enemy>();
             //if (enemy != null)
             //{
@@ -89,19 +109,34 @@ public class Player : MonoBehaviour
         _currentAttackTwoCooldown = _attackTwoCooldown;
         _moveComponent.IsAttacking = true;
         _animator.SetBool("_attackTwo", true);
-        RaycastHit raycastHit;
+        //RaycastHit raycastHit;
         //_animator.GetBool(name: "_isRunning");
 
         yield return new WaitForSeconds(_attackTwoDuration);
 
-        if (Physics.Raycast(transform.position, transform.right, out raycastHit, _attackTwoRange))
+
+        foreach (var fireball in _fireballPool)
         {
-            //Enemy enemy = raycastHit.collider.GetComponent<Enemy>();
-            //if (enemy != null)
-            //{
-            //    enemy.TakeDamage(25f);
-            //}
+            if (fireball.activeSelf == false)
+            {
+                fireball.transform.position = transform.position + transform.right * 0.5f + transform.up * 0.25f;
+                fireball.transform.rotation = transform.rotation;
+                fireball.SetActive(true);
+                break;
+            }
         }
+
+
+        //Instantiate(_attackTwoFireballPrefab, transform.position + transform.right *0.5f + transform.up * 0.5f, transform.rotation);
+
+        //if (Physics.Raycast(transform.position, transform.right, out raycastHit, _attackTwoRange))
+        //{
+        //    //Enemy enemy = raycastHit.collider.GetComponent<Enemy>();
+        //    //if (enemy != null)
+        //    //{
+        //    //    enemy.TakeDamage(25f);
+        //    //}
+        //}
 
         yield return new WaitForSeconds(_attackTwoDuration);
 
@@ -110,10 +145,22 @@ public class Player : MonoBehaviour
 
     }
 
+
+    void OnEnable()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject temp = Instantiate(_attackTwoFireballPrefab);
+            temp.SetActive(false);
+            _fireballPool.Add(temp);
+        }
+    }
+
     // Start is called before the first frame update
     void Start()
     {
         
+
 
         _animator =transform.Find("Idle_0").GetComponent<Animator>();
         _moveComponent = GetComponent<MoveComponent>();
@@ -122,8 +169,7 @@ public class Player : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        _currentAttackOneCooldown -= Time.deltaTime;
-        _currentAttackTwoCooldown -= Time.deltaTime;
+        
         if (Input.GetKeyDown(KeyCode.U) && _currentAttackOneCooldown<=0)
         {
             
@@ -135,7 +181,8 @@ public class Player : MonoBehaviour
         {
             StartCoroutine(AttackTwo());
         }
-
+        _currentAttackOneCooldown -= Time.deltaTime;
+        _currentAttackTwoCooldown -= Time.deltaTime;
 
     }
 }

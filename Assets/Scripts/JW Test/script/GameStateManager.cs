@@ -21,6 +21,9 @@ public class GameStateManager : Singleton<GameStateManager>
 
 
 
+    //251028 추가
+    private GameObject _nextStageDetector;
+
 
 
     private bool _isInitialStart = true;
@@ -66,6 +69,24 @@ public class GameStateManager : Singleton<GameStateManager>
     private bool _isInNextStageRecognitionPlane = false;
     public bool IsInNextStageRecognitionPlane { get { return _isInNextStageRecognitionPlane; } set { _isInNextStageRecognitionPlane = value; } }
 
+
+
+    public void PauseUnpauseMusic()
+    {
+        if (_audioSource.isPlaying)
+        {
+            _audioSource.Pause();
+        }
+        else if (!_audioSource.isPlaying)
+        {
+            _audioSource.UnPause();
+
+        }
+
+
+    }
+
+    
 
     //tracknumber 0 타이틀 노래
     public void PlayTrack(int trackNumber)
@@ -139,7 +160,9 @@ public class GameStateManager : Singleton<GameStateManager>
         PlayTrack(_currentTrackNumber);
         //_audioSource.Play();
 
-        Instantiate(_nextStageRecognitionPlanePrefab, transform); //자식으로 둠
+        //251028 추가
+        _nextStageDetector = Instantiate(_nextStageRecognitionPlanePrefab, transform); //자식으로 둠
+        _nextStageDetector.SetActive(false);
 
         foreach (var prefab in _stagePrefabs) //앞에서 부터
         {

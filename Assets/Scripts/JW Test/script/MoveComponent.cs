@@ -323,7 +323,7 @@ public class MoveComponent : MonoBehaviour
             float clampedYRotation = nextRotation.eulerAngles.y - 90f;
             //currentYRotation = NormalizeAngle(currentYRotation);
             clampedYRotation = NormalizeAngle(clampedYRotation);
-            Debug.Log("Right Rotation: " + clampedYRotation);
+            //Debug.Log("Right Rotation: " + clampedYRotation);
             clampedYRotation = Mathf.Clamp(clampedYRotation, _rotationLimitMinRight, _rotationLimitMaxRight);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0, clampedYRotation, 0), _rotationSpeed * Time.deltaTime);
         }

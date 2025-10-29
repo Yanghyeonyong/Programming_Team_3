@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    //testing
     [SerializeField] private GameObject _attackTwoFireballPrefab;
     
     [SerializeField] private float _playerHealth = 100f;
@@ -66,8 +65,6 @@ public class Player : MonoBehaviour
 
     }
 
-    
-    private int _layerMask = 1 << 6; // Layer 6 is "Enemy"
 
     IEnumerator AttackOne()
     {
@@ -79,19 +76,18 @@ public class Player : MonoBehaviour
 
         yield return new WaitForSeconds(_attackOneDuration);
 
-        if (Physics.Raycast(transform.position+ Vector3.up*0.1f, transform.right, out raycastHit, _attackOneRange, _layerMask))
+        if (Physics.Raycast(transform.position+ Vector3.up*0.5f, transform.right, out raycastHit, _attackOneRange))
         {
-            Debug.DrawRay(transform.position + Vector3.up * 0.1f, transform.right * _attackOneRange, Color.red, 2f);
             Debug.Log(raycastHit.collider.name);
-
-            if (raycastHit.collider.CompareTag("Enemy"))
-            {
-                Enemy enemy = raycastHit.collider.GetComponent<Enemy>();
-                if (enemy != null)
-                {
-                    enemy.OnTakeDamage(2f);
-                }
-            }
+            
+            //if (raycastHit.collider.CompareTag("Enemy"))
+            //{
+            //    Enemy enemy = raycastHit.collider.GetComponent<Enemy>();
+            //    if (enemy != null)
+            //    {
+            //        enemy.TakeDamage(25f);
+            //    }
+            //}
 
 
             //Enemy enemy = raycastHit.collider.GetComponent<Enemy>();

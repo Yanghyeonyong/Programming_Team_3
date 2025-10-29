@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
 public class GameStateManager : Singleton<GameStateManager>
@@ -19,12 +18,6 @@ public class GameStateManager : Singleton<GameStateManager>
     [SerializeField] private GameObject _nextStageRecognitionPlanePrefab; //tag "NextStageRecognition"
     [SerializeField] private List<GameObject> _stagePrefabs; //스테이지별 프리팹들
     [SerializeField] private List<AudioClip> audioBGMs;
-
-
-    //수현님 요청 사항
-    public UnityEvent<int> OnStageChanged = new UnityEvent<int>();
-    public UnityEvent OnEnemyDied = new UnityEvent();
-    public int CurrentStage { get { return _currentStage; } }
 
 
 
@@ -158,8 +151,6 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void InitialStart()
     {
-        _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation);
-        //_currentPlayer = FindObjectOfType<Player>().gameObject;
         //_currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
 
         //_isGamePlayerSceneLoaded = true;
@@ -184,6 +175,7 @@ public class GameStateManager : Singleton<GameStateManager>
             _stagePool.Add(temp);
         }
 
+        _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation, transform);
         //_maxStageNumberPerStage[0] = 3;
         _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
         //_isStageCleared = false; //재확인용 초기화
@@ -240,19 +232,13 @@ public class GameStateManager : Singleton<GameStateManager>
 
 
     // Start is called before the first frame update
-    //void Start()
-    //{
-    //    //base.Awake();
-
-
-    //}
-
-    private void Start()
+    void Start()
     {
         InitialStart();
         SceneManager.sceneLoaded += OnGamePlaySceneLoad;
         SceneManager.sceneLoaded += OnGamePlaySceneDeload;
-        
+
+
     }
     private void OnDestroy()
     {

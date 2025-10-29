@@ -4,158 +4,154 @@ using UnityEngine;
 
 public class EnemySpawner : MonoBehaviour
 {
+    //싱글톤 인스턴스
     public static EnemySpawner Instance;
 
-    [Header("Spawn Settings")]
+    [Header("Prefabs")] // 잡몹, 정예몹 프리팹 참조
+    [SerializeField] private GameObject _enemyPrefab;
+    [SerializeField] private GameObject _eliteEnemyPrefab;
+
+
+    [Header("Spawn Settings")] // 정예 몬스터 스폰조건, 스폰주기, 스폰 여부
     [SerializeField] private int _killsRequiredForElite = 5;
     [SerializeField] private float _spawnDelay = 2f;
     [SerializeField] private bool _isActive = false;
 
-    [SerializeField] private List<Transform> _spawnPoints;
 
-
+    //중복 스폰 방지
     private bool _isSpawning = false;
+
+    //정예 몬스터가 이미 소환되었는지 여부
     private bool _isEliteSpawned = false;
-    private int _aliveEnemies = 0;
-    private int _totalKillsInStage = 0;
 
-    private List<int> _maxEnemiesByStage = new List<int>();
-    //private List<Transform> _spawnPoints = new List<Transform>();
+    //현재 스테이지에서 살아있는 적 수
+    private int _aliveEnemies;
+
+    //현재 스테이지에서 잡은 총 적 수
+    private int _totalKillsInStage;
+
+    //각 스테이지별 최대 적 수 (GameStateManeger에서 가져옴)
+    private List<int> _maxEnemiesByStage;
+
+    //스폰 위치 리스트
+    private List<Transform> _spawnPoints = new List<Transform>();
+
+    //GameStateManager 캐싱
     private GameStateManager _gameState;
-
-    private Coroutine _spawnCoroutine = null;
 
     private void Awake()
     {
         if (Instance == null)
+        {
             Instance = this;
+        }
         else
         {
             Destroy(gameObject);
-            return;
         }
 
+        //하위 오브젝트를 스폰 포인트로 등록
         foreach (Transform child in transform)
+        {
             _spawnPoints.Add(child);
+        }
+
     }
 
+    // 게임 상태 매니저의 이벤트 구독
     private void Start()
     {
-        _gameState = GameStateManager.Instance;
-        if (_gameState == null) return;
+        _gameState = GameStateManager.Instance; // 한 번만 참조.
 
         _gameState.OnStageChanged.AddListener(OnStageChanged);
-        _gameState.OnEnemyDied.AddListener(OnEnemyDied);
+         _gameState.OnEnemyDied.AddListener(OnEnemyDied);
 
-        _maxEnemiesByStage = _gameState.MaxStageNumberPerStage != null ?
-                             new List<int>(_gameState.MaxStageNumberPerStage) :
-                             new List<int>();
-
+         _maxEnemiesByStage = _gameState.GetMaxEnemiesList();
         _isActive = true;
-        StartSpawningForStage(_gameState.CurrentStage);
+        StartCoroutine(SpawnEnemies(0));
     }
 
+    // 이벤트 구독해제
     private void OnDestroy()
     {
         if (_gameState != null)
         {
-            _gameState.OnStageChanged.RemoveListener(OnStageChanged);
+           _gameState.OnStageChanged.RemoveListener(OnStageChanged);
             _gameState.OnEnemyDied.RemoveListener(OnEnemyDied);
         }
-
-        StopSpawnCoroutine();
     }
 
+    //스테이지 변경 시 스폰 시작
     private void OnStageChanged(int stageIndex)
     {
         _aliveEnemies = 0;
         _totalKillsInStage = 0;
         _isEliteSpawned = false;
-        StartSpawningForStage(stageIndex);
+
+        StopCoroutine(SpawnEnemies(stageIndex));
+        StartCoroutine(SpawnEnemies(stageIndex));
     }
 
-    public void OnEnemyDied()
+    //적 사망 시 호출되어 현재 적 수 감소
+    private void OnEnemyDied()
     {
-        _aliveEnemies = Mathf.Max(0, _aliveEnemies - 1);
-        _totalKillsInStage++;
+       
+        _aliveEnemies -= 1;
+        _totalKillsInStage += 1;
 
-        int maxEnemies = GetMaxEnemiesForStage(_gameState.CurrentStage);
+        int maxEnemies = _maxEnemiesByStage[(int)_gameState.CurrentStage];
 
-        // 엘리트 적 스폰
-        if (!_isEliteSpawned && _totalKillsInStage >= _killsRequiredForElite)
+        //일정 수 처치 시 정예 몬스터 등장
+        if(_isEliteSpawned == false && _totalKillsInStage >= _killsRequiredForElite)
         {
             _isEliteSpawned = true;
             SpawnEliteEnemy();
         }
-
-        // 남은 적 스폰
+        
+        //일반 몬스터 스폰 유지
         if (_aliveEnemies < maxEnemies)
-            StartSpawningForStage(_gameState.CurrentStage);
+        {
+            StartCoroutine(SpawnEnemies(_gameState.CurrentStage));
+        }
+
     }
 
-    private int GetMaxEnemiesForStage(int stageIndex)
-    {
-        return (stageIndex >= 0 && stageIndex < _maxEnemiesByStage.Count) ? _maxEnemiesByStage[stageIndex] : 0;
-    }
-
-    private void StartSpawningForStage(int stageIndex)
-    {
-        if (!_isActive || _isSpawning) return;
-
-        StopSpawnCoroutine();
-        _spawnCoroutine = StartCoroutine(SpawnEnemies(stageIndex));
-    }
-
+    //적 스폰 코루틴
     private IEnumerator SpawnEnemies(int stageIndex)
     {
-        _isSpawning = true;
-        int maxEnemies = GetMaxEnemiesForStage(stageIndex);
+        if (_isActive == false || _isSpawning)
+        {
+            yield break;
+        }
 
-        while (_aliveEnemies < maxEnemies && _isActive && _spawnPoints.Count > 0)
+        _isSpawning = true;
+
+        int maxEnemies = _maxEnemiesByStage[(int)stageIndex];
+
+        while (_aliveEnemies < maxEnemies)
         {
             yield return new WaitForSeconds(_spawnDelay);
 
-            int spawnIdx = Random.Range(0, _spawnPoints.Count);
-            Transform spawnPoint = _spawnPoints[spawnIdx];
-
-            GameObject enemy = EnemyPool.Instance.GetEnemy();
-            enemy.transform.position = spawnPoint.position;
-            enemy.transform.rotation = Quaternion.identity;
-
+            Transform spawnPoint = _spawnPoints[Random.Range(0, _spawnPoints.Count)];
+            Instantiate(_enemyPrefab, spawnPoint.position, Quaternion.identity);
             _aliveEnemies++;
         }
 
         _isSpawning = false;
-        _spawnCoroutine = null;
     }
 
+    //정예 몬스터 스폰 메서드
     private void SpawnEliteEnemy()
     {
-        if (_spawnPoints.Count == 0) return;
-
-        int spawnIdx = Random.Range(0, _spawnPoints.Count);
-        Transform spawnPoint = _spawnPoints[spawnIdx];
-
-        GameObject eliteEnemy = EnemyPool.Instance.GetEliteEnemy();
-        eliteEnemy.transform.position = spawnPoint.position;
-        eliteEnemy.transform.rotation = Quaternion.identity;
-
-        _aliveEnemies++;
+        Transform spawnPoint = _spawnPoints[Random.Range(0, _spawnPoints.Count)];
+        Instantiate(_eliteEnemyPrefab, spawnPoint.position, Quaternion.identity);
     }
 
-    private void StopSpawnCoroutine()
-    {
-        if (_spawnCoroutine != null)
-        {
-            StopCoroutine(_spawnCoroutine);
-            _spawnCoroutine = null;
-        }
-        _isSpawning = false;
-    }
 
     public void SetActive(bool isActive)
     {
         _isActive = isActive;
-        if (!_isActive) StopSpawnCoroutine();
     }
+
+
 }

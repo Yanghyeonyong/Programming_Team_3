@@ -1,295 +1,198 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
 public class GameStateManager : Singleton<GameStateManager>
 {
     [SerializeField] private List<int> _maxEnemyNumberPerStage = new List<int>();
-
-    
-    [SerializeField] private List<GameObject> _playerPrefab; //0 여전사 1 무사
-
-
+    [SerializeField] private List<GameObject> _playerPrefab; // 0: 전사, 1: 마법사 등
     [SerializeField] private GameObject _defaultPlayerPosition;
 
-
-    [SerializeField] private GameObject _nextStageRecognitionPlanePrefab; //tag "NextStageRecognition"
-    [SerializeField] private List<GameObject> _stagePrefabs; //스테이지별 프리팹들
+    [SerializeField] private GameObject _nextStageRecognitionPlanePrefab; // tag "NextStageRecognition"
+    [SerializeField] private List<GameObject> _stagePrefabs;
     [SerializeField] private List<AudioClip> audioBGMs;
 
-
-    //수현님 요청 사항
-    public UnityEvent<int> OnStageChanged = new UnityEvent<int>();
-    public UnityEvent OnEnemyDied = new UnityEvent();
-    public int CurrentStage { get { return _currentStage; } }
-
-
-
-    //251028 추가
-    private GameObject _nextStageDetector;
-
-
-
     private bool _isInitialStart = true;
-    //private bool _isTitleSceneLoaded = false;
-    //private bool _isTitleMusicPlaying = false;
-    //private bool _hasReturnedToGamePlayerScene = false;
     private bool _isPlayerAlive = true;
+    public bool IsPlayerAlive { get => _isPlayerAlive; set => _isPlayerAlive = value; }
 
+    public List<int> MaxStageNumberPerStage => _maxEnemyNumberPerStage;
+    public int CurrentEnemyCount { get => _currentEnemyCount; set => _currentEnemyCount = value; }
 
-    public bool IsPlayerAlive { get { return _isPlayerAlive; } set { _isPlayerAlive = value; } }
-    //1스테이지가 인덱스 0
-    public List<int> MaxStageNumberPerStage { get { return _maxEnemyNumberPerStage; } }
-
-
-
-    //외부에서 적 사망시 카운트 감소용
-    public int CurrentEnemyCount { get { return _currentEnemyCount; } set { _currentEnemyCount = value; } }
-
-    
-    //public bool IsStageCleared { get { return _isStageCleared; } }
-    
-
-    //private bool _isGamePaused = false;
-    //private bool _isGamePlayerSceneLoaded = false;
+    // ===== EnemySpawner 등에서 구독할 공개 이벤트 =====
+    public event Action OnStageChanged;     // 스테이지 변경
+    public event Action OnEnemyDied;        // 적 사망
+    public int CurrentStage => _currentStage;
+    public List<int> GetMaxEnemiesList() => _maxEnemyNumberPerStage;
 
     private AudioSource _audioSource;
-
-    //private GameObject _playerType;
     private int _currentPlayerType;
-
     private GameObject _currentPlayer;
-
-    //private List<int> _maxEnemyPerStage;
-    private List<GameObject> _stagePool; //
-
+    private List<GameObject> _stagePool;
 
     private int _currentEnemyCount = 0;
-
     private int _currentTrackNumber = 0;
-
-    //private bool _isStageCleared = false;
     private int _currentStage = 0;
+
     private bool _isInNextStageRecognitionPlane = false;
-    public bool IsInNextStageRecognitionPlane { get { return _isInNextStageRecognitionPlane; } set { _isInNextStageRecognitionPlane = value; } }
+    public bool IsInNextStageRecognitionPlane { get => _isInNextStageRecognitionPlane; set => _isInNextStageRecognitionPlane = value; }
 
+    private GameObject _nextStageDetector;
 
-
-    public void PauseUnpauseMusic()
+    // ===== Public API =====
+    public void ReportEnemyDied()
     {
-        if (_audioSource.isPlaying)
-        {
-            _audioSource.Pause();
-        }
-        else if (!_audioSource.isPlaying)
-        {
-            _audioSource.UnPause();
-
-        }
-
-
+        _currentEnemyCount = Mathf.Max(0, _currentEnemyCount - 1);
+        OnEnemyDied?.Invoke();
+        CheckStageClear();
     }
 
-    
-
-    //tracknumber 0 타이틀 노래
     public void PlayTrack(int trackNumber)
     {
-
         _currentTrackNumber = trackNumber;
-        _audioSource.clip = audioBGMs[trackNumber];
-        _audioSource.Play();
-
-    }
-    //void OnCollisionEnter(Collision other)
-    //{
-    //    if (other.gameObject.tag == "NextStageRecognition")
-    //    {
-    //        _isInNextStageRecognitionPlane = true;
-    //    }
-    //}
-
-
-
-    void CheckStageClear()
-    {
-        if (_currentEnemyCount == 0)
+        if (audioBGMs != null && trackNumber >= 0 && trackNumber < audioBGMs.Count)
         {
-            //_isStageCleared = true;
-            _nextStageRecognitionPlanePrefab.SetActive(true);
-            // Show some UI indication that the stage is cleared
-
-
-            if (_isInNextStageRecognitionPlane)
-            {
-                _currentStage++;
-                //disable UI indication
-                LoadStage(_currentStage);
-                //만약 음악 변경 필요하면 PlayTrack(++_currentTrackNumber);
-                _isInNextStageRecognitionPlane = false;
-                //_isStageCleared = false;
-                _nextStageRecognitionPlanePrefab.SetActive(false);
-                _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
-
-            }
-
-
-
-
-
-
+            if (_audioSource == null) _audioSource = GetComponent<AudioSource>();
+            _audioSource.clip = audioBGMs[trackNumber];
+            _audioSource.Play();
         }
     }
 
+    // ===== Internals =====
+    void CheckStageClear()
+    {
+        if (_currentEnemyCount != 0) return;
+
+        if (_nextStageDetector != null) _nextStageDetector.SetActive(true); // UI 표시 등
+
+        if (_isInNextStageRecognitionPlane)
+        {
+            _currentStage++;
+
+            OnStageChanged?.Invoke();
+
+            LoadStage(_currentStage);
+
+            _isInNextStageRecognitionPlane = false;
+            if (_nextStageDetector != null) _nextStageDetector.SetActive(false);
+
+            if (_currentStage >= 0 && _currentStage < _maxEnemyNumberPerStage.Count)
+                _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+        }
+    }
 
     void LoadStage(int stageNumber)
     {
-        _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
+        if (_currentPlayer != null && _defaultPlayerPosition != null)
+            _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
 
-        //Load Stage Logic
-
-
-
+        // TODO: stageNumber를 이용해 _stagePool 활성/비활성 관리
     }
-
 
     void InitialStart()
     {
-        _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation);
-        //_currentPlayer = FindObjectOfType<Player>().gameObject;
-        //_currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
-
-        //_isGamePlayerSceneLoaded = true;
-        //audioBGMs[2] = Resources.Load<AudioClip>("Audio/BGM/StageBGM");
-
         _audioSource = GetComponent<AudioSource>();
         PlayTrack(_currentTrackNumber);
-        //_audioSource.Play();
 
-        //251028 추가
-        _nextStageDetector = Instantiate(_nextStageRecognitionPlanePrefab, transform); //자식으로 둠
-        _nextStageDetector.SetActive(false);
-
-        foreach (var prefab in _stagePrefabs) //앞에서 부터
+        // 다음 스테이지 감지 오브젝트(비활성)
+        if (_nextStageRecognitionPlanePrefab != null)
         {
-            if (_stagePool == null)
-            {
-                _stagePool = new List<GameObject>();
-            }
-            GameObject temp = Instantiate(prefab, transform); //기본 위치 및 회전값, 자식으로 둠
+            _nextStageDetector = Instantiate(_nextStageRecognitionPlanePrefab, transform);
+            _nextStageDetector.SetActive(false);
+        }
+
+        // 스테이지 풀 준비
+        _stagePool = new List<GameObject>();
+        foreach (var prefab in _stagePrefabs)
+        {
+            var temp = Instantiate(prefab, transform);
             temp.SetActive(false);
             _stagePool.Add(temp);
         }
 
-        //_maxStageNumberPerStage[0] = 3;
-        _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
-        //_isStageCleared = false; //재확인용 초기화
+        // 플레이어 생성
+        if (_playerPrefab != null && _playerPrefab.Count > 0)
+        {
+            _currentPlayer = Instantiate(
+                _playerPrefab[_currentPlayerType],
+                _defaultPlayerPosition != null ? _defaultPlayerPosition.transform.position : Vector3.zero,
+                _playerPrefab[_currentPlayerType].transform.rotation,
+                transform
+            );
+        }
+
+        if (_currentStage >= 0 && _currentStage < _maxEnemyNumberPerStage.Count)
+            _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+
         LoadStage(_currentStage);
         _isInitialStart = false;
-
     }
 
     void SubsequentStart()
     {
         _isPlayerAlive = true;
-
         _currentStage = 0;
         _currentTrackNumber = 0;
-        //_isGamePlayerSceneLoaded = true;
-        _audioSource.clip = audioBGMs[_currentTrackNumber];
-        _audioSource.Play();
+
+        if (audioBGMs != null && audioBGMs.Count > 0)
+        {
+            if (_audioSource == null) _audioSource = GetComponent<AudioSource>();
+            _audioSource.clip = audioBGMs[_currentTrackNumber];
+            _audioSource.Play();
+        }
+
         LoadStage(_currentStage);
-        _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
-        _currentPlayer.SetActive(true);
 
-        //_hasReturnedToGamePlayerScene = false;
-        //_audioSource.Play();
-
+        if (_currentPlayer != null && _defaultPlayerPosition != null)
+        {
+            _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
+            _currentPlayer.SetActive(true);
+        }
     }
 
     void OnGamePlaySceneLoad(Scene scene, LoadSceneMode mode)
     {
-        //mode는 single로 default임
-        if (scene.buildIndex == 1 && _isInitialStart == false) //게임 플레이 씬
+        if (scene.buildIndex == 1 && _isInitialStart == false)
         {
             SubsequentStart();
-            //_isGamePlayerSceneLoaded = true;
         }
     }
 
     void OnGamePlaySceneDeload(Scene scene, LoadSceneMode mode)
     {
-        if (scene.buildIndex != 1) //게임 플레이 씬
+        if (scene.buildIndex != 1)
         {
-
-            _currentPlayer.SetActive(false);
-            foreach (var stage in _stagePool)
-            {
-                stage.SetActive(false);
-            }
-
-            _audioSource.Pause();
-
-
-            //_isGamePlayerSceneLoaded = false;
+            if (_currentPlayer != null) _currentPlayer.SetActive(false);
+            if (_stagePool != null) foreach (var stage in _stagePool) stage.SetActive(false);
+            if (_audioSource != null) _audioSource.Pause();
         }
     }
-
-
-    // Start is called before the first frame update
-    //void Start()
-    //{
-    //    //base.Awake();
-
-
-    //}
 
     private void Start()
     {
         InitialStart();
         SceneManager.sceneLoaded += OnGamePlaySceneLoad;
         SceneManager.sceneLoaded += OnGamePlaySceneDeload;
-        
     }
+
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnGamePlaySceneLoad;
         SceneManager.sceneLoaded -= OnGamePlaySceneDeload;
     }
 
-
-
-
-    // Update is called once per frame
     void Update()
     {
-        //InitialStart(); //첫 실행시 한 번만
-        //SubsequentStart(); //다른 화면에서 돌아올때 한번만
-
         if (SceneManager.GetActiveScene().buildIndex == 1)
         {
-
             CheckStageClear();
-
         }
 
-        if (SceneManager.GetActiveScene().buildIndex ==1 && _isPlayerAlive == false)
+        if (SceneManager.GetActiveScene().buildIndex == 1 && _isPlayerAlive == false)
         {
-            //Handle Player Death
-            _currentPlayer.SetActive(false);
-            //Show Game Over UI
-            //Option to Restart or Return to Title
+            if (_currentPlayer != null) _currentPlayer.SetActive(false);
+            // TODO: Game Over UI 처리 / 타이틀 이동 등
         }
-
-
-
-
-
-
     }
-
 }
-

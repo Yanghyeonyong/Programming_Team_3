@@ -25,10 +25,6 @@ public class MapPattern : MonoBehaviour
     }
     IEnumerator PlayerSpellAttack()
     {
-        if (_boss == null)
-        {
-            _boss = FindObjectOfType<BossEnemy>().gameObject;
-        }
         //보스 객체가 살아있거나 존재할 경우에만 발동
         yield return _boss != null;
         yield return _boss.activeSelf == true;

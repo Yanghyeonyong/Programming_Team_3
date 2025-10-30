@@ -76,4 +76,5 @@ crashlytics-build.properties
 
 Assets/ProjectAssets/*
 Assets/*
-!Assets/Scripts/*
+!Assets/Scripts/SBKim/
+!Assets/Scripts/SBKim/**

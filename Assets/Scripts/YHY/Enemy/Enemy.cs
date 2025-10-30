@@ -22,7 +22,7 @@ public class Enemy : MonoBehaviour
     //몬스터 공격 활성화
     protected bool _enableAttack = true;
     protected bool _enableSpell = true;
-    [SerializeField] private float _attackDelay;
+    [SerializeField] protected float _attackDelay;
     [SerializeField] private float _spellDelay;
 
     //몬스터 피격 후 경직
@@ -55,7 +55,7 @@ public class Enemy : MonoBehaviour
     private bool _hitByWallUp = false;
 
     //레이캐스트 충돌 방지
-    private int layerMask;
+    protected int layerMask;
 
     private AudioSource _audioSource;
     //0 : 피격
@@ -66,7 +66,9 @@ public class Enemy : MonoBehaviour
     [SerializeField] List<AudioClip> _audioClips;
 
 
-    //몬스터 종류 체크, 일반이나 엘리트는 아무것도 체크 x
+    //몬스터 종류 체크, 일반은 아무것도 체크 x
+
+    [SerializeField] private bool _isElite = false;
     [SerializeField] private bool _boss = false;
     [SerializeField] private bool _summon = false;
     private void Start()
@@ -280,11 +282,50 @@ public class Enemy : MonoBehaviour
 
 
 
+    ////공격 동작 시행
+    //private void Attack()
+    //{
+    //    //Debug.Log("attack function called");
+    //    if (CheckPlayer())
+    //    {
+    //        //Debug.Log("player in attack range");
+    //        if (_enableAttack == true && _onStun == false)
+    //        {
+    //            _onAttack = true;
+    //            //추가적인 스펠이 없는 적의 경우
+    //            if (_spellObject == null)
+    //            {
+    //                //_isAttacking = true;
+    //                _animator.SetTrigger("_attack");
+
+    //                StartCoroutine("PlayerAttack");
+    //                StartCoroutine("AttackDelay");
+    //            }
+    //            //스펠을 가진 적의 경우
+    //            else
+    //            {
+    //                if (_enableSpell == true)
+    //                {
+    //                    _animator.SetTrigger("_cast");
+    //                    StartCoroutine("PlayerSpellAttack");
+    //                    StartCoroutine("SpellDelay");
+    //                }
+    //                else
+    //                {
+    //                    _animator.SetTrigger("_attack");
+    //                    StartCoroutine("PlayerAttack");
+    //                    StartCoroutine("AttackDelay");
+    //                }
+    //            }
+    //        }
+    //    }
+    //}
+
     //공격 동작 시행
     private void Attack()
     {
         //Debug.Log("attack function called");
-        if (CheckPlayer())
+        if (CheckPlayer() && _boss == false)
         {
             //Debug.Log("player in attack range");
             if (_enableAttack == true && _onStun == false)
@@ -317,9 +358,33 @@ public class Enemy : MonoBehaviour
                 }
             }
         }
+
+        else if (_boss == true)
+        {
+
+            if (_enableAttack == true && _onStun == false)
+            {
+                _onAttack = true;
+
+                if (_enableSpell == true)
+                {
+                    _animator.SetTrigger("_cast");
+                    StartCoroutine("PlayerSpellAttack");
+                    StartCoroutine("SpellDelay");
+                }
+                else
+                {
+                    if (CheckPlayer())
+                    {
+                        _animator.SetTrigger("_attack");
+                        StartCoroutine("PlayerAttack");
+                        StartCoroutine("AttackDelay");
+                    }
+                }
+            }
+
+        }
     }
-
-
 
     //플레이어가 레이 범위에 있는지 체크
     private bool CheckPlayer()
@@ -466,10 +531,14 @@ public class Enemy : MonoBehaviour
     //    //CheckPlayer();
     //}
 
-
+    //데미지를 입었을 경우 체크
+    protected bool _isTakeDamage=false;
     //데미지를 입음
     public void OnTakeDamage(float damage)
     {
+
+        _isTakeDamage = true;
+
         if (_isPlayerAttack)
         {
             StopCoroutine("PlayerAttack");
@@ -500,6 +569,11 @@ public class Enemy : MonoBehaviour
             _enableAttack = true;
         }
 
+        if (_boss)
+        {
+            _spellObject.SetActive(false);
+        }
+
         _onAttack = false;
 
 
@@ -520,6 +594,8 @@ public class Enemy : MonoBehaviour
         //isPlayerAttack false 변환시 얘는 동반해야됨
         _isPlayerAttack = false;
         _enemyCollider.size = new Vector3(_colliderSize, _colliderSize, _colliderSize);
+
+        _isTakeDamage=false;
     }
 
     protected IEnumerator Hurt()
@@ -547,18 +623,34 @@ public class Enemy : MonoBehaviour
         _animator.Play("Death");
         gameObject.GetComponent<BoxCollider>().enabled = false;
 
+
+
+        float length = _animator.GetCurrentAnimatorStateInfo(0).length;
+        yield return new WaitForSeconds(length);
+        //gameObject.SetActive(false);
+
         //소환수의 경우는 스포너 기반 소환이 아니므로 꼬임 방지
         if (_summon == false)
         {
+            // 풀 반환
+            if (_isElite)
+            {
+                EnemyPool.Instance.ReturnEliteEnemy(gameObject);
+            }
+            else
+            {
+                EnemyPool.Instance.ReturnEnemy(gameObject);
+            }
+
             //적 사망시 현재 적 개체수 감소
             GameStateManager.Instance.CurrentEnemyCount--;
             //적 사망시 이벤트 호출
             GameStateManager.Instance.OnEnemyDied.Invoke();
         }
-
-        float length = _animator.GetCurrentAnimatorStateInfo(0).length;
-        yield return new WaitForSeconds(length);
-        gameObject.SetActive(false);
+        else
+        {
+            gameObject.SetActive(false);
+        }
     }
 
 

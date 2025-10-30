@@ -188,16 +188,25 @@ public class MoveComponent : MonoBehaviour
 
 
 
-    void Start()
+    void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
 
         _animator = transform.Find("Idle_0").GetComponent<Animator>();
         _inputComponent = GetComponent<InputComponent>();
-        StartCoroutine(CheckAndDodge());
+        //StartCoroutine(CheckAndDodge());
 
 
     }
+    private void OnEnable()
+    {
+        //_rigidbody = GetComponent<Rigidbody>();
+        //_animator = transform.Find("Idle_0").GetComponent<Animator>();
+        //_inputComponent = GetComponent<InputComponent>();
+        StartCoroutine(CheckAndDodge());
+    }
+
+
 
     private float NormalizeAngle(float angle)
     {
@@ -400,7 +409,11 @@ public class MoveComponent : MonoBehaviour
     public bool IsAttacking { get { return _isAttacking; } set { _isAttacking = value; } }
     private bool _isTakingDamage = false;
     public bool IsTakingDamage { get { return _isTakingDamage; } set { _isTakingDamage = value; } }
-
+    public bool IsDodging { get { return _isDodging; } set { _isDodging = value; } }
+    public void StopCoroutinesForReset()
+    {
+        StopAllCoroutines();
+    }
 
 
     IEnumerator CheckAndDodge()
@@ -608,6 +621,7 @@ public class MoveComponent : MonoBehaviour
             _isChangingMode = true;
             _currentFlipCooldown = _flipCooldown;
             ChangeFlatMode();
+            transform.position =new Vector3 (transform.position.x, 0f, transform.position.z);
         }
         _currentFlipCooldown -= Time.deltaTime;
 

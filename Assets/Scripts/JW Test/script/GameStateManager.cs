@@ -19,11 +19,18 @@ public class GameStateManager : Singleton<GameStateManager>
     [SerializeField] private GameObject _nextStageRecognitionPlanePrefab; //tag "NextStageRecognition"
     [SerializeField] private List<GameObject> _stagePrefabs; //스테이지별 프리팹들
     [SerializeField] private List<AudioClip> audioBGMs;
+    [SerializeField] private AudioClip _deathScreenMusic;
+
+
 
 
     //수현님 요청 사항
     public UnityEvent<int> OnStageChanged = new UnityEvent<int>();
     public UnityEvent OnEnemyDied = new UnityEvent();
+
+    public UnityEvent<bool> OnPlayerDeath = new UnityEvent<bool>();
+    public UnityEvent<bool> OnGameRestart = new UnityEvent<bool>();
+
     public int CurrentStage { get { return _currentStage; } }
 
 
@@ -60,6 +67,9 @@ public class GameStateManager : Singleton<GameStateManager>
 
     //private GameObject _playerType;
     private int _currentPlayerType;
+    public int CurrentPlayerType { get { return _currentPlayerType; } set { _currentPlayerType = value; } }
+    //scene manager에 currentPlayer type 보관해야할듯
+
 
     private GameObject _currentPlayer;
 
@@ -100,8 +110,11 @@ public class GameStateManager : Singleton<GameStateManager>
     {
 
         _currentTrackNumber = trackNumber;
-        _audioSource.clip = audioBGMs[trackNumber];
-        _audioSource.Play();
+        if (audioBGMs != null)
+        {
+            _audioSource.clip = audioBGMs[trackNumber];
+            _audioSource.Play();
+        }
 
     }
     //void OnCollisionEnter(Collision other)
@@ -147,6 +160,7 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void LoadStage(int stageNumber)
     {
+        OnStageChanged.Invoke(stageNumber);
         _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
 
         //Load Stage Logic
@@ -194,15 +208,23 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void SubsequentStart()
     {
+        if (_currentPlayer == null)
+        {
+            _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation);
+        }
         _isPlayerAlive = true;
 
         _currentStage = 0;
         _currentTrackNumber = 0;
         //_isGamePlayerSceneLoaded = true;
         _audioSource.clip = audioBGMs[_currentTrackNumber];
+        //play from beginning
+        _audioSource.time = 0f;
         _audioSource.Play();
+        
         LoadStage(_currentStage);
         _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
+        _currentPlayer.GetComponent<Player>().ResetPlayer();
         _currentPlayer.SetActive(true);
 
         //_hasReturnedToGamePlayerScene = false;
@@ -216,6 +238,28 @@ public class GameStateManager : Singleton<GameStateManager>
         if (scene.buildIndex == 1 && _isInitialStart == false) //게임 플레이 씬
         {
             SubsequentStart();
+            _uis = new List<Canvas>(FindObjectsOfType<Canvas>());
+
+            if (_uis != null)
+            {
+                foreach (var UI in _uis)
+                {
+                    if (UI.gameObject.name == "DeathUI")
+                    {
+                        _deathScreenUI = UI.gameObject;
+                        _deathScreenUI.SetActive(false);
+                        break;
+                    }
+
+                    //else if (UI.gameObject.name == "UserInterface")
+                    //{
+                    //    _userInterface = UI.gameObject;
+                    //    _userInterface.SetActive(false);
+                    //}
+                    //_deathScreenUI = FindAnyObjectByType<Canvas>().gameObject; //DeathUI Canvas
+                    //_deathScreenUI.SetActive(false);
+                }
+            }
             //_isGamePlayerSceneLoaded = true;
         }
     }
@@ -247,12 +291,44 @@ public class GameStateManager : Singleton<GameStateManager>
 
     //}
 
+    private List<Canvas> _uis;
+
+    //UserInterface는 알아서 본인을 여기에 담는다
+    public GameObject _userInterface;
+
     private void Start()
     {
+        _uis = new List<Canvas>(FindObjectsOfType<Canvas>());
+
+        if (_uis != null)
+        {
+            foreach (var UI in _uis)
+            {
+                if (UI.gameObject.name == "DeathUI")
+                {
+                    _deathScreenUI = UI.gameObject;
+                    _deathScreenUI.SetActive(false);
+                    break;
+                }
+
+                //else if (UI.gameObject.name == "UserInterface")
+                //{
+                //    _userInterface = UI.gameObject;
+                //    _userInterface.SetActive(false);
+                //}
+                //_deathScreenUI = FindAnyObjectByType<Canvas>().gameObject; //DeathUI Canvas
+                //_deathScreenUI.SetActive(false);
+            }
+        }
+
+        _userInterface.SetActive(true);
+
+        //_deathScreenMusicTrackNumber = audioBGMs.Count -1;
         InitialStart();
         SceneManager.sceneLoaded += OnGamePlaySceneLoad;
         SceneManager.sceneLoaded += OnGamePlaySceneDeload;
         
+
     }
     private void OnDestroy()
     {
@@ -262,6 +338,66 @@ public class GameStateManager : Singleton<GameStateManager>
 
 
 
+    private void DisableUI()
+    {
+        if (_userInterface != null)
+        {
+            if (_userInterface.activeSelf)
+            {
+                _userInterface.SetActive(false);
+            }
+            else
+            {
+                _userInterface.SetActive(true);
+            }
+        }
+
+    }
+
+    //Player.cs에서 알림
+    //void CheckPlayerHealth()
+    //{
+    //    if (_currentPlayer == null)
+    //    {
+    //        if (_currentPlayer.)
+    //        _isPlayerAlive = false;
+    //        OnPlayerDeath.Invoke(!_isPlayerAlive);
+    //    }
+    //}
+
+
+    GameObject _deathScreenUI; //= FindAnyObjectByType<Canvas>().gameObject; //DeathUI Canvas
+    //public void LetSpawnerKnowPlayerDied()
+    //{
+    //   OnPlayerDeath.Invoke(false); //false means dead for the spawner
+    //}
+
+
+    //private int _deathScreenMusicTrackNumber; //to avoid multiple invocations
+
+    public void LoadDeathScreen()
+    {
+        _userInterface.SetActive(false);
+        _audioSource.clip = _deathScreenMusic;
+        _audioSource.Play();
+
+        //debug
+
+        _deathScreenUI.SetActive(true);
+
+    }
+    //private void DeloadDeathSCreen()
+    //{
+    //    GameObject _deathScreenUI = FindAnyObjectByType<Canvas>().gameObject; //DeathUI Canvas
+    //    _deathScreenUI.SetActive(false);
+    //}
+
+    private bool _restartRequested = false;
+
+    public void RequestGameRestart()
+    {
+        _restartRequested = true;
+    }
 
     // Update is called once per frame
     void Update()
@@ -269,14 +405,14 @@ public class GameStateManager : Singleton<GameStateManager>
         //InitialStart(); //첫 실행시 한 번만
         //SubsequentStart(); //다른 화면에서 돌아올때 한번만
 
-        if (SceneManager.GetActiveScene().buildIndex == 1)
+        if (SceneManager.GetActiveScene().buildIndex == 1 && _isPlayerAlive == true)
         {
 
             CheckStageClear();
 
         }
 
-        if (SceneManager.GetActiveScene().buildIndex ==1 && _isPlayerAlive == false)
+        else if (SceneManager.GetActiveScene().buildIndex ==1 && _isPlayerAlive == false)
         {
             //Handle Player Death
             _currentPlayer.SetActive(false);
@@ -284,7 +420,39 @@ public class GameStateManager : Singleton<GameStateManager>
             //Option to Restart or Return to Title
         }
 
+        if (_restartRequested)
+        {
+            _userInterface.SetActive(true);
+            _restartRequested = false;
+            PauseUnpauseMusic();
+            OnGameRestart.Invoke(true); //true means set Spawner Active
 
+            SubsequentStart();
+        }
+
+
+        if (Input.GetKeyDown(KeyCode.Backspace) && IsPlayerAlive == true)
+        {
+            DisableUI();
+            foreach (Transform child in _currentPlayer.transform)
+            {
+                if (child.name =="GreenArrow")
+                {
+                    if (child.gameObject.activeSelf)
+                    {
+                        child.gameObject.SetActive(false);
+                    }
+                    else
+                    {
+                        child.gameObject.SetActive(true);
+
+                    }
+                }
+            
+
+            }
+            //SceneManager.LoadScene(0); //타이틀 화면으로
+        }
 
 
 

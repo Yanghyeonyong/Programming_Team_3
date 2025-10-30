@@ -44,6 +44,11 @@ public class EnemySpawner : MonoBehaviour
         _gameState = GameStateManager.Instance;
         if (_gameState == null) return;
 
+        _gameState.OnPlayerDeath.AddListener(SetActive);
+        _gameState.OnGameRestart.AddListener(SetActive);
+
+
+
         _gameState.OnStageChanged.AddListener(OnStageChanged);
         _gameState.OnEnemyDied.AddListener(OnEnemyDied);
 
@@ -61,6 +66,8 @@ public class EnemySpawner : MonoBehaviour
         {
             _gameState.OnStageChanged.RemoveListener(OnStageChanged);
             _gameState.OnEnemyDied.RemoveListener(OnEnemyDied);
+            _gameState.OnPlayerDeath.RemoveListener(SetActive);
+            _gameState.OnGameRestart.RemoveListener(SetActive);
         }
 
         StopSpawnCoroutine();
@@ -91,6 +98,9 @@ public class EnemySpawner : MonoBehaviour
         // 남은 적 스폰
         if (_aliveEnemies < maxEnemies)
             StartSpawningForStage(_gameState.CurrentStage);
+
+
+
     }
 
     private int GetMaxEnemiesForStage(int stageIndex)
@@ -153,9 +163,15 @@ public class EnemySpawner : MonoBehaviour
         _isSpawning = false;
     }
 
+    //public void ChangeActive()
+    //{
+
+    //}
+
     public void SetActive(bool isActive)
     {
         _isActive = isActive;
         if (!_isActive) StopSpawnCoroutine();
+        else StartSpawningForStage(_gameState.CurrentStage);
     }
 }

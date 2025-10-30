@@ -22,9 +22,10 @@ public class Player : MonoBehaviour
 
     private List<GameObject> _fireballPool = new List<GameObject>();
 
+    public float PlayerHealth { get { return _playerHealth; } }
+    public float MaxHealth { get { return _maxHealth; } }
 
-
-
+    public UserInterfaceGame _userInterfaceGame;
 
     private MoveComponent _moveComponent;
     private Animator _animator;
@@ -35,9 +36,18 @@ public class Player : MonoBehaviour
         Debug.Log($"Player Health: {_playerHealth}");
         if (_playerHealth <= 0)
         {
-            PlayerDeath();
+            StartCoroutine(PlayerDeath());
         }
-        StartCoroutine(TakeDamageCoroutine());
+        if (gameObject.activeSelf)
+        {
+            NotifyUIHealthbar();
+            StartCoroutine(TakeDamageCoroutine());
+        }
+    }
+
+    public void NotifyUIHealthbar()
+    {
+        _userInterfaceGame.NotifyHealthBar();
     }
 
 
@@ -49,10 +59,55 @@ public class Player : MonoBehaviour
         }
     }
 
-
-    void PlayerDeath()
+    private float _maxHealth;
+    public void ResetPlayer()
     {
+        _currentAttackOneCooldown = 0f;
+        _currentAttackTwoCooldown = 0f;
+        _playerHealth = _maxHealth;
+        foreach (Transform child in transform)
+        {
+            if (child.name == "GreenArrow")
+            {
+                
+                    child.gameObject.SetActive(true);
+
+                
+            }
+
+
+        }
+        NotifyUIHealthbar();
+
+        if (_moveComponent != null)
+        {
+            _moveComponent.IsAttacking = false;
+            _moveComponent.IsTakingDamage = false;
+            _moveComponent.IsDodging = false;
+            _moveComponent.StopCoroutinesForReset();
+        }
+        //GameStateManager.Instance.IsPlayerAlive = true;
+    }
+
+    IEnumerator PlayerDeath()
+    {
+        _animator.SetBool("_hasDied", true);
+        float length = _animator.GetCurrentAnimatorStateInfo(0).length;
+        yield return new WaitForSeconds(length +2f);
+        _animator.SetBool("_hasDied", false);
+   
+        //StartCoroutine(PlayerDeathAnimation());
+        gameObject.SetActive(false);
         GameStateManager.Instance.IsPlayerAlive = false;
+        foreach (var enemy in FindObjectsOfType<Enemy>())
+        {
+            enemy.StopAllCoroutines();
+            enemy.gameObject.SetActive(false);
+        }
+        GameStateManager.Instance.PauseUnpauseMusic();
+        GameStateManager.Instance.LoadDeathScreen();
+        GameStateManager.Instance.OnPlayerDeath.Invoke(false); //false means dead tell spawner
+
     }
     IEnumerator TakeDamageCoroutine()
     {
@@ -158,6 +213,14 @@ public class Player : MonoBehaviour
             temp.SetActive(false);
             _fireballPool.Add(temp);
         }
+
+
+
+    }
+
+    void OnDisable()
+    {
+        _fireballPool = new List<GameObject>();
     }
 
     // Start is called before the first frame update
@@ -165,7 +228,7 @@ public class Player : MonoBehaviour
     {
         
 
-
+        _maxHealth = _playerHealth;
         _animator =transform.Find("Idle_0").GetComponent<Animator>();
         _moveComponent = GetComponent<MoveComponent>();
     }

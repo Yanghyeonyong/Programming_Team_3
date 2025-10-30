@@ -66,7 +66,9 @@ public class Enemy : MonoBehaviour
     [SerializeField] List<AudioClip> _audioClips;
 
 
-    //몬스터 종류 체크, 일반이나 엘리트는 아무것도 체크 x
+    //몬스터 종류 체크, 일반은 아무것도 체크 x
+
+    [SerializeField] private bool _isElite = false;
     [SerializeField] private bool _boss = false;
     [SerializeField] private bool _summon = false;
     private void Start()
@@ -547,18 +549,34 @@ public class Enemy : MonoBehaviour
         _animator.Play("Death");
         gameObject.GetComponent<BoxCollider>().enabled = false;
 
+
+
+        float length = _animator.GetCurrentAnimatorStateInfo(0).length;
+        yield return new WaitForSeconds(length);
+        //gameObject.SetActive(false);
+
         //소환수의 경우는 스포너 기반 소환이 아니므로 꼬임 방지
         if (_summon == false)
         {
+            // 풀 반환
+            if (_isElite)
+            {
+                EnemyPool.Instance.ReturnEliteEnemy(gameObject);
+            }
+            else
+            {
+                EnemyPool.Instance.ReturnEnemy(gameObject);
+            }
+
             //적 사망시 현재 적 개체수 감소
             GameStateManager.Instance.CurrentEnemyCount--;
             //적 사망시 이벤트 호출
             GameStateManager.Instance.OnEnemyDied.Invoke();
         }
-
-        float length = _animator.GetCurrentAnimatorStateInfo(0).length;
-        yield return new WaitForSeconds(length);
-        gameObject.SetActive(false);
+        else
+        {
+            gameObject.SetActive(false);
+        }
     }
 
 

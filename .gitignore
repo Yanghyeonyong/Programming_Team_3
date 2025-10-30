@@ -75,3 +75,7 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 Assets/ProjectAssets/*
+Assets/*
+!Assets/Scripts/KSB/
+!Assets/Scripts/KSB/**
+

@@ -77,5 +77,6 @@ crashlytics-build.properties
 Assets/ProjectAssets/*
 Assets/*
 !Assets/Scripts/KSB/
-!Assets/Scripts/KSB/**
+Assets/Scripts/KSB/*
+!Assets/Scripts/KSB/**/*.cs
 

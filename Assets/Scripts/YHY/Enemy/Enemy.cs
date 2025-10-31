@@ -509,6 +509,12 @@ public class Enemy : MonoBehaviour
         StartCoroutine(AttackGettingCloseToPlayer());
         yield return new WaitForSeconds(_attackRayTiming);
 
+        //하단에 있을 경우 플레이어가 맞으면 소리가 발생하지 않아서 위로 이동
+        if (player.activeSelf)
+        {
+            StartCoroutine(PlaySoundEffect(3));
+        }
+
         if (CheckPlayer())
         {
             Debug.Log("플레이어가 공격받았다");
@@ -519,11 +525,12 @@ public class Enemy : MonoBehaviour
         }
         //yield return new WaitForSeconds(_attackRayTiming);
 
-        //공격 사운드
-        if (player.activeSelf)
-        {
-            StartCoroutine(PlaySoundEffect(3));
-        }
+
+        ////공격 사운드
+        //if (player.activeSelf)
+        //{
+        //    StartCoroutine(PlaySoundEffect(3));
+        //}
             //transform.position = Vector3.MoveTowards(transform.position, player.transform.position, _moveSpeed);
 
         //if (CheckPlayer())
@@ -716,7 +723,7 @@ public class Enemy : MonoBehaviour
     }
 
 
-    IEnumerator PlaySoundEffect(int _audioNum)
+    protected IEnumerator PlaySoundEffect(int _audioNum)
     {
 
         if (_audioClips[_audioNum] != null)
@@ -729,11 +736,17 @@ public class Enemy : MonoBehaviour
             }
             else
             {
+                if (_audioNum == 3)
+                {
+                    Debug.Log("공격 소리");
+                }
                 //if (_audioSource.clip = _audioClips[3])
                 //{
                 //    _audioSource.Stop();
                 //}
-                _audioSource.PlayOneShot(_audioClips[_audioNum]);
+                //_audioSource.PlayOneShot(_audioClips[_audioNum]);
+                _audioSource.clip = _audioClips[_audioNum];
+                _audioSource.Play();
             }
         }
     }

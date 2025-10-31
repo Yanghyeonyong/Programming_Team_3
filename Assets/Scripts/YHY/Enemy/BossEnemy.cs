@@ -17,47 +17,10 @@ public class BossEnemy : Enemy
 
     [SerializeField] private float _firaBallCharge = 2f;
     [SerializeField] private float _chargingSpeed = 0.1f;
-    //IEnumerator PlayerSpellAttack()
-    //{
+    
+    
+    [SerializeField] private int _spellSoundStartFrame=1;
 
-    //    //_isPlayerSpellAttack = true;
-
-    //    //for (int i = 0; i < _spellFrame; i++)
-    //    //{
-    //    //    yield return null;
-    //    //}
-    //    //Debug.Log("발동");
-    //    ////진희님 코드 기반으로 구현
-    //    //for (int i = 0; i < _monsterCount; i++)
-    //    //{
-    //    //    // 보스 주변 랜덤 위치 
-    //    //    Vector3 spawnPos = transform.position +
-    //    //                       new Vector3(Random.Range(-_summonRadius, _summonRadius), 0, Random.Range(-_summonRadius, _summonRadius));
-    //    //    //비활성화된 객체 있는지 확인
-    //    //    GameObject _summonObject = CheckIsActive(_summons);
-
-    //    //    //없으면 새로 소환
-    //    //    if (_summonObject == null)
-    //    //    {
-
-    //    //        GameObject _summon = Instantiate(_monsterPrefab, spawnPos, Quaternion.identity);
-    //    //        _summons.Add(_summon);
-    //    //    }
-    //    //    //있으면 가져와서 다시 사용
-    //    //    else
-    //    //    {
-    //    //        _summonObject.transform.position = spawnPos;
-    //    //        _summonObject.SetActive(true); 
-    //    //    }
-    //    //    yield return new WaitForSeconds(0.3f); // 마리마다 약간의 딜레이
-    //    //}
-
-    //    //_onAttack = false;
-    //    //_isPlayerSpellAttack = false;
-    //    Debug.Log("발동1");
-    //    StartCoroutine("FireBall");
-    //    yield return null;
-    //}
     IEnumerator PlayerSpellAttack()
     {
 
@@ -72,10 +35,12 @@ public class BossEnemy : Enemy
             _isAttackDelay = true;
             _enableAttack = false;
 
-            //파이어폴 활성화
+            //파이어볼 활성화
             _spellObject.SetActive(true);
 
-            //파이어폴 크기 증가
+            StartCoroutine(PlaySoundEffect(5));
+
+            //파이어볼 크기 증가
             while (true)
             {
                 _spellObject.transform.localScale = new Vector3(_spellObject.transform.localScale.x + _chargingSpeed
@@ -103,10 +68,19 @@ public class BossEnemy : Enemy
         }
         else
         {
+
+
+
             for (int i = 0; i < _spellFrame; i++)
             {
+                if (i == _spellSoundStartFrame)
+                {
+                    StartCoroutine(PlaySoundEffect(4));
+                }
                 yield return null;
             }
+            //StartCoroutine(PlaySoundEffect(4));
+
             Debug.Log("발동");
             //진희님 코드 기반으로 구현
             for (int i = 0; i < _monsterCount; i++)
@@ -164,7 +138,6 @@ public class BossEnemy : Enemy
     }
 
 
-    [SerializeField] private bool _finishedChrage=false;
 
     IEnumerator FireBall()
     {
@@ -177,7 +150,6 @@ public class BossEnemy : Enemy
                 break;
 
         }
-        _finishedChrage = true;
 
         yield return null;
     }

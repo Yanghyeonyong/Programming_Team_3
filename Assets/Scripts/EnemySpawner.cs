@@ -18,6 +18,11 @@ public class EnemySpawner : MonoBehaviour
     private bool _isEliteSpawned = false;
     private int _aliveEnemies = 0;
     private int _totalKillsInStage = 0;
+    //현용 추가 (엘리트 몬스터 한 스테이지에 여러마리 소환용)
+    private int _enemyKillsToCheckEliteSpawn = 0;
+    //스폰한 몬스터 수 세는 변수
+    private int _spawnEnemiesCount = 0;
+
 
     private List<int> _maxEnemiesByStage = new List<int>();
     //private List<Transform> _spawnPoints = new List<Transform>();
@@ -44,6 +49,11 @@ public class EnemySpawner : MonoBehaviour
         _gameState = GameStateManager.Instance;
         if (_gameState == null) return;
 
+        _gameState.OnPlayerDeath.AddListener(SetActive);
+        _gameState.OnGameRestart.AddListener(SetActive);
+
+
+
         _gameState.OnStageChanged.AddListener(OnStageChanged);
         _gameState.OnEnemyDied.AddListener(OnEnemyDied);
 
@@ -61,6 +71,8 @@ public class EnemySpawner : MonoBehaviour
         {
             _gameState.OnStageChanged.RemoveListener(OnStageChanged);
             _gameState.OnEnemyDied.RemoveListener(OnEnemyDied);
+            _gameState.OnPlayerDeath.RemoveListener(SetActive);
+            _gameState.OnGameRestart.RemoveListener(SetActive);
         }
 
         StopSpawnCoroutine();
@@ -70,7 +82,13 @@ public class EnemySpawner : MonoBehaviour
     {
         _aliveEnemies = 0;
         _totalKillsInStage = 0;
+        //양현용 추가
+        _enemyKillsToCheckEliteSpawn = 0;
         _isEliteSpawned = false;
+
+        //몬스터 생성 카운트 초기화
+        _spawnEnemiesCount = 0;
+
         StartSpawningForStage(stageIndex);
     }
 
@@ -78,19 +96,33 @@ public class EnemySpawner : MonoBehaviour
     {
         _aliveEnemies = Mathf.Max(0, _aliveEnemies - 1);
         _totalKillsInStage++;
+        //양현용 추가
+        _enemyKillsToCheckEliteSpawn++;
 
         int maxEnemies = GetMaxEnemiesForStage(_gameState.CurrentStage);
 
+        //// 엘리트 적 스폰
+        //if (!_isEliteSpawned && _totalKillsInStage >= _killsRequiredForElite)
+        //{
+        //    _isEliteSpawned = true;
+        //    _enemyKillsToCheckEliteSpawn = 0;
+        //    SpawnEliteEnemy();
+        //}
+
+        //양현용 추가 
         // 엘리트 적 스폰
-        if (!_isEliteSpawned && _totalKillsInStage >= _killsRequiredForElite)
+        if ( _totalKillsInStage >= _killsRequiredForElite && _enemyKillsToCheckEliteSpawn>= _killsRequiredForElite)
         {
-            _isEliteSpawned = true;
+            _enemyKillsToCheckEliteSpawn = 0;
             SpawnEliteEnemy();
         }
 
         // 남은 적 스폰
         if (_aliveEnemies < maxEnemies)
             StartSpawningForStage(_gameState.CurrentStage);
+
+
+
     }
 
     private int GetMaxEnemiesForStage(int stageIndex)
@@ -100,6 +132,8 @@ public class EnemySpawner : MonoBehaviour
 
     private void StartSpawningForStage(int stageIndex)
     {
+
+
         if (!_isActive || _isSpawning) return;
 
         StopSpawnCoroutine();
@@ -113,16 +147,41 @@ public class EnemySpawner : MonoBehaviour
 
         while (_aliveEnemies < maxEnemies && _isActive && _spawnPoints.Count > 0)
         {
-            yield return new WaitForSeconds(_spawnDelay);
+           
+            //양현용 모든 적을 죽여도 계속해서 부활하는 것 방지
+            if (_spawnEnemiesCount >= maxEnemies)
+                break;
+            Debug.Log("현재 : " + GameStateManager.Instance.CurrentStage + " 최대 : " + GameStateManager.Instance.MaxStageNumberPerStage.Count);
+            if (GameStateManager.Instance.CurrentStage == GameStateManager.Instance.MaxStageNumberPerStage.Count-1)
+            {
+                Debug.Log("보스방이다ㅏㅏㅏㅏ");
+                yield return new WaitForSeconds(_spawnDelay);
 
-            int spawnIdx = Random.Range(0, _spawnPoints.Count);
-            Transform spawnPoint = _spawnPoints[spawnIdx];
+                int spawnIdx = Random.Range(0, _spawnPoints.Count);
+                Transform spawnPoint = _spawnPoints[spawnIdx];
 
-            GameObject enemy = EnemyPool.Instance.GetEnemy();
-            enemy.transform.position = spawnPoint.position;
-            enemy.transform.rotation = Quaternion.identity;
+                //여기서 대각선공격을 하게 되는데 이걸 조치하겟음 정욱
+                GameObject enemy = EnemyPool.Instance.GetBossEnemy();
+                enemy.transform.position = spawnPoint.position;
+                enemy.transform.rotation = Quaternion.identity;
+            }
+            else
+            {
+                yield return new WaitForSeconds(_spawnDelay);
+
+                int spawnIdx = Random.Range(0, _spawnPoints.Count);
+                Transform spawnPoint = _spawnPoints[spawnIdx];
+
+                //여기서 대각선공격을 하게 되는데 이걸 조치하겟음 정욱
+                GameObject enemy = EnemyPool.Instance.GetEnemy();
+                enemy.transform.position = spawnPoint.position;
+                enemy.transform.rotation = Quaternion.identity;
+            }
 
             _aliveEnemies++;
+
+            //양현용 몬스터 소환 카운트 증가
+            _spawnEnemiesCount++;
         }
 
         _isSpawning = false;
@@ -153,9 +212,15 @@ public class EnemySpawner : MonoBehaviour
         _isSpawning = false;
     }
 
+    //public void ChangeActive()
+    //{
+
+    //}
+
     public void SetActive(bool isActive)
     {
         _isActive = isActive;
         if (!_isActive) StopSpawnCoroutine();
+        else StartSpawningForStage(_gameState.CurrentStage);
     }
 }

@@ -22,7 +22,7 @@ public class GameStateManager : Singleton<GameStateManager>
     [SerializeField] private AudioClip _deathScreenMusic;
 
 
-
+    public bool _isBossAlive = false;
 
     //수현님 요청 사항
     public UnityEvent<int> OnStageChanged = new UnityEvent<int>();
@@ -86,7 +86,7 @@ public class GameStateManager : Singleton<GameStateManager>
     private bool _isInNextStageRecognitionPlane = false;
     public bool IsInNextStageRecognitionPlane { get { return _isInNextStageRecognitionPlane; } set { _isInNextStageRecognitionPlane = value; } }
 
-
+    private SceneChanger _sceneChanger;
 
     public void PauseUnpauseMusic()
     {
@@ -127,26 +127,43 @@ public class GameStateManager : Singleton<GameStateManager>
 
 
 
-    void CheckStageClear()
+    public void CheckStageClear()
     {
-        if (_currentEnemyCount == 0)
+        Debug.Log("Checking Stage Clear");
+        Debug.Log(CurrentEnemyCount);
+        if (_currentEnemyCount <= 0 && _isBossAlive == false)
         {
             //_isStageCleared = true;
-            _nextStageRecognitionPlanePrefab.SetActive(true);
+            _nextStageDetector.SetActive(true);
             // Show some UI indication that the stage is cleared
-
+            _goNext.SetActive(true);
 
             if (_isInNextStageRecognitionPlane)
             {
+                foreach (Enemy enemy in FindObjectsOfType<Enemy>())
+                {
+                    enemy.gameObject.SetActive(false); //모든 적 비활성화
+                }
+                Debug.Log("Stage Cleared, Loading Next Stage");
                 _currentStage++;
+                if (_currentStage >= _stagePool.Count)
+                {
+
+
+                    Debug.Log("All Stages Cleared! Returning to Title Screen.");
+                    
+                    SceneManager.LoadScene(2); //메뉴 화면으로
+                    return;
+                }
+
                 //disable UI indication
                 LoadStage(_currentStage);
                 //만약 음악 변경 필요하면 PlayTrack(++_currentTrackNumber);
                 _isInNextStageRecognitionPlane = false;
                 //_isStageCleared = false;
-                _nextStageRecognitionPlanePrefab.SetActive(false);
+                _nextStageDetector.SetActive(false);
                 _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
-
+                _goNext.SetActive(false);
             }
 
 
@@ -160,7 +177,12 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void LoadStage(int stageNumber)
     {
+        if (stageNumber >= 1)
+        {
+            _stagePool[stageNumber - 1].SetActive(false);
+        }
         OnStageChanged.Invoke(stageNumber);
+        _stagePool[stageNumber].SetActive(true);
         _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
 
         //Load Stage Logic
@@ -169,10 +191,16 @@ public class GameStateManager : Singleton<GameStateManager>
 
     }
 
+    public float _killsRequiredForElite;
+    
 
     void InitialStart()
     {
+        _currentPlayerType = SceneChanger.Instance._selectedPlayerIndex;
+        
+        
         _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation);
+        Debug.Log("Initial Start - Player Instantiated");
         //_currentPlayer = FindObjectOfType<Player>().gameObject;
         //_currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
 
@@ -184,22 +212,19 @@ public class GameStateManager : Singleton<GameStateManager>
         //_audioSource.Play();
 
         //251028 추가
-        _nextStageDetector = Instantiate(_nextStageRecognitionPlanePrefab, transform); //자식으로 둠
-        _nextStageDetector.SetActive(false);
+        
 
-        foreach (var prefab in _stagePrefabs) //앞에서 부터
-        {
-            if (_stagePool == null)
-            {
-                _stagePool = new List<GameObject>();
-            }
-            GameObject temp = Instantiate(prefab, transform); //기본 위치 및 회전값, 자식으로 둠
-            temp.SetActive(false);
-            _stagePool.Add(temp);
-        }
+        
+        //LoadStage(_currentStage);
 
         //_maxStageNumberPerStage[0] = 3;
         _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+        //Debug.Log("초기 적 수");
+        //Debug.Log(_currentEnemyCount);
+        _currentEnemyCount +=(int)(_currentEnemyCount/_killsRequiredForElite); //엘리트 몹 추가 반영
+        //Debug.Log("엘리트 몹 추가 후 적 수");
+        //Debug.Log(_currentEnemyCount);
+
         //_isStageCleared = false; //재확인용 초기화
         LoadStage(_currentStage);
         _isInitialStart = false;
@@ -208,96 +233,11 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void SubsequentStart()
     {
-        if (_currentPlayer == null)
+        if (EnemySpawner.Instance != null)
         {
-            _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation);
+            _killsRequiredForElite = EnemySpawner.Instance._killsRequiredForElite;
+            Debug.Log($"Kills Required For Elite: {_killsRequiredForElite}");
         }
-        _isPlayerAlive = true;
-
-        _currentStage = 0;
-        _currentTrackNumber = 0;
-        //_isGamePlayerSceneLoaded = true;
-        _audioSource.clip = audioBGMs[_currentTrackNumber];
-        //play from beginning
-        _audioSource.time = 0f;
-        _audioSource.Play();
-        
-        LoadStage(_currentStage);
-        _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
-        _currentPlayer.GetComponent<Player>().ResetPlayer();
-        _currentPlayer.SetActive(true);
-
-        //_hasReturnedToGamePlayerScene = false;
-        //_audioSource.Play();
-
-    }
-
-    void OnGamePlaySceneLoad(Scene scene, LoadSceneMode mode)
-    {
-        //mode는 single로 default임
-        if (scene.buildIndex == 1 && _isInitialStart == false) //게임 플레이 씬
-        {
-            SubsequentStart();
-            _uis = new List<Canvas>(FindObjectsOfType<Canvas>());
-
-            if (_uis != null)
-            {
-                foreach (var UI in _uis)
-                {
-                    if (UI.gameObject.name == "DeathUI")
-                    {
-                        _deathScreenUI = UI.gameObject;
-                        _deathScreenUI.SetActive(false);
-                        break;
-                    }
-
-                    //else if (UI.gameObject.name == "UserInterface")
-                    //{
-                    //    _userInterface = UI.gameObject;
-                    //    _userInterface.SetActive(false);
-                    //}
-                    //_deathScreenUI = FindAnyObjectByType<Canvas>().gameObject; //DeathUI Canvas
-                    //_deathScreenUI.SetActive(false);
-                }
-            }
-            //_isGamePlayerSceneLoaded = true;
-        }
-    }
-
-    void OnGamePlaySceneDeload(Scene scene, LoadSceneMode mode)
-    {
-        if (scene.buildIndex != 1) //게임 플레이 씬
-        {
-
-            _currentPlayer.SetActive(false);
-            foreach (var stage in _stagePool)
-            {
-                stage.SetActive(false);
-            }
-
-            _audioSource.Pause();
-
-
-            //_isGamePlayerSceneLoaded = false;
-        }
-    }
-
-
-    // Start is called before the first frame update
-    //void Start()
-    //{
-    //    //base.Awake();
-
-
-    //}
-
-    private List<Canvas> _uis;
-
-    //UserInterface는 알아서 본인을 여기에 담는다
-    public GameObject _userInterface;
-
-    private void Start()
-    {
         _uis = new List<Canvas>(FindObjectsOfType<Canvas>());
 
         if (_uis != null)
@@ -320,23 +260,190 @@ public class GameStateManager : Singleton<GameStateManager>
                 //_deathScreenUI.SetActive(false);
             }
         }
+        _currentPlayerType = SceneChanger.Instance._selectedPlayerIndex;
+        if (_currentPlayer == null)
+        {
+            _currentPlayer = Instantiate(_playerPrefab[_currentPlayerType], _defaultPlayerPosition.transform.position, _playerPrefab[_currentPlayerType].transform.rotation);
+            Debug.Log("Subsequent Start - Player Instantiated");
+        }
+        _isPlayerAlive = true;
 
-        _userInterface.SetActive(true);
+        _currentStage = 0;
+        _currentTrackNumber = 0;
+        if (_audioSource == null)
+        {
+                       _audioSource = GetComponent<AudioSource>();
+        }
+        //_isGamePlayerSceneLoaded = true;
+        _audioSource.clip = audioBGMs[_currentTrackNumber];
+        //play from beginning
+        _audioSource.time = SceneChanger.Instance._titleMusicProgress;
+        _audioSource.Play();
 
-        //_deathScreenMusicTrackNumber = audioBGMs.Count -1;
-        InitialStart();
-        SceneManager.sceneLoaded += OnGamePlaySceneLoad;
-        SceneManager.sceneLoaded += OnGamePlaySceneDeload;
-        
+        LoadStage(_currentStage);
+        _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+        Debug.Log($"적 수 {_currentEnemyCount}");
+        _currentEnemyCount += (int)(_currentEnemyCount / _killsRequiredForElite);
+        Debug.Log(_currentEnemyCount);
+        //엘리트 몹 추가 반영
+        //_currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
+
+
+        StartCoroutine(WaitForUI());
+        //_hasReturnedToGamePlayerScene = false;
+        //_audioSource.Play();
 
     }
+
+    IEnumerator WaitForUI()
+    {
+        while (_userInterface == null || _userInterface.GetComponent<UserInterfaceGame>()._isReady == false)
+        {
+            yield return null;
+        }
+        _currentPlayer.GetComponent<Player>().ResetPlayer();
+        _currentPlayer.SetActive(true);
+    }
+
+    void OnGamePlaySceneLoad(Scene scene, LoadSceneMode mode)
+    {
+        if (SceneChanger.Instance != null)
+        {
+            _currentPlayerType = SceneChanger.Instance._selectedPlayerIndex;
+        }
+
+        //mode는 single로 default임
+        if (scene.buildIndex == 1) //게임 플레이 씬
+        {
+            SubsequentStart();
+
+            
+            //_isGamePlayerSceneLoaded = true;
+        }
+    }
+
+    void OnGamePlaySceneDeload(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.buildIndex != 1) //게임 플레이 씬
+        {
+            if (_currentPlayer != null)
+            {
+                _currentPlayer.SetActive(false);
+            }
+            foreach (var stage in _stagePool)
+            {
+                if (stage != null)
+                {
+                    stage.SetActive(false);
+                }
+            }
+
+            if (_audioSource != null)
+            {
+                _audioSource.Pause();
+            }
+
+            //_isGamePlayerSceneLoaded = false;
+        }
+    }
+
+
+    // Start is called before the first frame update
+    //void Start()
+    //{
+    //    //base.Awake();
+
+
+    //}
+
+    private List<Canvas> _uis;
+
+    //UserInterface는 알아서 본인을 여기에 담는다
+    public GameObject _userInterface;
+
+    private void Start()
+    {
+
+        _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+        
+        _currentEnemyCount += (int)(_currentEnemyCount / _killsRequiredForElite);
+        _sceneChanger = SceneChanger.Instance;
+
+        foreach (var prefab in _stagePrefabs) //앞에서 부터
+        {
+            if (_stagePool == null)
+            {
+                _stagePool = new List<GameObject>();
+            }
+            GameObject temp = Instantiate(prefab, prefab.transform.position, prefab.transform.rotation, transform); //기본 위치 및 회전값, 자식으로 둠
+            temp.SetActive(false);
+            _stagePool.Add(temp);
+        }
+
+        _nextStageDetector = Instantiate(_nextStageRecognitionPlanePrefab, _nextStageRecognitionPlanePrefab.transform.position, _nextStageRecognitionPlanePrefab.transform.rotation, transform); //자식으로 둠
+        _nextStageDetector.SetActive(false);
+        //_uis = new List<Canvas>(FindObjectsOfType<Canvas>());
+
+        //if (_uis != null)
+        //{
+        //    foreach (var UI in _uis)
+        //    {
+        //        if (UI.gameObject.name == "DeathUI")
+        //        {
+        //            _deathScreenUI = UI.gameObject;
+        //            _deathScreenUI.SetActive(false);
+        //            break;
+        //        }
+
+        //        //else if (UI.gameObject.name == "UserInterface")
+        //        //{
+        //        //    _userInterface = UI.gameObject;
+        //        //    _userInterface.SetActive(false);
+        //        //}
+        //        //_deathScreenUI = FindAnyObjectByType<Canvas>().gameObject; //DeathUI Canvas
+        //        //_deathScreenUI.SetActive(false);
+        //    }
+        //}
+
+        //_userInterface.SetActive(true);
+
+
+
+        //_deathScreenMusicTrackNumber = audioBGMs.Count -1;
+        //InitialStart();
+
+        SceneManager.sceneLoaded += OnGamePlaySceneLoad;
+        SceneManager.sceneLoaded += OnGamePlaySceneDeload;
+
+    }
+
+
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnGamePlaySceneLoad;
         SceneManager.sceneLoaded -= OnGamePlaySceneDeload;
     }
+    
+
+    //void OnEnable()
+    //{
+    //    SceneManager.sceneLoaded += OnGamePlaySceneLoad;
+    //    SceneManager.sceneLoaded += OnGamePlaySceneDeload;
+    //}
+    //private void OnDisable()
+    //{
+    //    SceneManager.sceneLoaded -= OnGamePlaySceneLoad;
+    //    SceneManager.sceneLoaded -= OnGamePlaySceneDeload;
+    //}
+
+    //private void OnDestroy()
+    //{
+    //    SceneManager.sceneLoaded -= OnGamePlaySceneLoad;
+    //    SceneManager.sceneLoaded -= OnGamePlaySceneDeload;
+    //}
 
 
+    public GameObject _goNext;
 
     private void DisableUI()
     {
@@ -408,7 +515,7 @@ public class GameStateManager : Singleton<GameStateManager>
         if (SceneManager.GetActiveScene().buildIndex == 1 && _isPlayerAlive == true)
         {
 
-            CheckStageClear();
+            //CheckStageClear();
 
         }
 

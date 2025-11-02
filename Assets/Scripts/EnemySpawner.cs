@@ -7,12 +7,14 @@ public class EnemySpawner : MonoBehaviour
     public static EnemySpawner Instance;
 
     [Header("Spawn Settings")]
-    [SerializeField] private int _killsRequiredForElite = 5;
+    [SerializeField] public int _killsRequiredForElite = 5;
     [SerializeField] private float _spawnDelay = 2f;
     [SerializeField] private bool _isActive = false;
 
     [SerializeField] private List<Transform> _spawnPoints;
 
+
+    private int _spawnEnemiesCount = 0;
 
     private bool _isSpawning = false;
     private bool _isEliteSpawned = false;
@@ -53,7 +55,7 @@ public class EnemySpawner : MonoBehaviour
         _gameState.OnEnemyDied.AddListener(OnEnemyDied);
 
         _maxEnemiesByStage = _gameState.MaxStageNumberPerStage != null ?
-                             new List<int>(_gameState.MaxStageNumberPerStage) :
+                             _gameState.MaxStageNumberPerStage :
                              new List<int>();
 
         _isActive = true;
@@ -77,23 +79,41 @@ public class EnemySpawner : MonoBehaviour
     {
         _aliveEnemies = 0;
         _totalKillsInStage = 0;
+        _enemyKillsToCheckEliteSpawn = 0;
         _isEliteSpawned = false;
+
+        _spawnEnemiesCount = 0;
+
         StartSpawningForStage(stageIndex);
     }
+
+    private int _enemyKillsToCheckEliteSpawn = 0;
+
 
     public void OnEnemyDied()
     {
         _aliveEnemies = Mathf.Max(0, _aliveEnemies - 1);
         _totalKillsInStage++;
 
-        int maxEnemies = GetMaxEnemiesForStage(_gameState.CurrentStage);
+        _enemyKillsToCheckEliteSpawn++;
+
+        int maxEnemies = GetMaxEnemiesForStage(_gameState.CurrentStage) + (int)(GetMaxEnemiesForStage(_gameState.CurrentStage) / _killsRequiredForElite);
 
         // 엘리트 적 스폰
-        if (!_isEliteSpawned && _totalKillsInStage >= _killsRequiredForElite)
+        //if (!_isEliteSpawned && _totalKillsInStage >= _killsRequiredForElite)
+        //{
+        //    _isEliteSpawned = true;
+        //    SpawnEliteEnemy();
+        //}
+        if (_totalKillsInStage >= _killsRequiredForElite && _enemyKillsToCheckEliteSpawn >= _killsRequiredForElite)
         {
-            _isEliteSpawned = true;
-            SpawnEliteEnemy();
+            _enemyKillsToCheckEliteSpawn = 0;
+            if (_spawnEnemiesCount < maxEnemies)
+            {
+                SpawnEliteEnemy();
+            }
         }
+
 
         // 남은 적 스폰
         if (_aliveEnemies < maxEnemies)
@@ -121,22 +141,46 @@ public class EnemySpawner : MonoBehaviour
         _isSpawning = true;
         int maxEnemies = GetMaxEnemiesForStage(stageIndex);
 
+        //if (_spawn)
+
         while (_aliveEnemies < maxEnemies && _isActive && _spawnPoints.Count > 0)
         {
-            yield return new WaitForSeconds(_spawnDelay);
+            if (_spawnEnemiesCount >= maxEnemies)
+            {
+                break;
+            }
+            if (GameStateManager.Instance.CurrentStage == GameStateManager.Instance.MaxStageNumberPerStage.Count - 1)
+            {
+                Debug.Log("보스방이다ㅏㅏㅏㅏ");
+                yield return new WaitForSeconds(_spawnDelay);
 
-            int spawnIdx = Random.Range(0, _spawnPoints.Count);
-            Transform spawnPoint = _spawnPoints[spawnIdx];
+                int spawnIdx = Random.Range(0, _spawnPoints.Count);
+                Transform spawnPoint = _spawnPoints[spawnIdx];
 
-            GameObject enemy = EnemyPool.Instance.GetEnemy();
-            enemy.transform.position = spawnPoint.position;
-            enemy.transform.rotation = Quaternion.identity;
+                //여기서 대각선공격을 하게 되는데 이걸 조치하겟음 정욱
+                GameObject enemy = EnemyPool.Instance.GetBossEnemy();
+                enemy.transform.position = spawnPoint.position;
+                enemy.transform.rotation = Quaternion.identity;
+            }
+            else
+            {
+                yield return new WaitForSeconds(_spawnDelay);
+
+                int spawnIdx = Random.Range(0, _spawnPoints.Count);
+                Transform spawnPoint = _spawnPoints[spawnIdx];
+
+                //여기서 대각선공격을 하게 되는데 이걸 조치하겟음 정욱
+                GameObject enemy = EnemyPool.Instance.GetEnemy();
+                enemy.transform.position = spawnPoint.position;
+                enemy.transform.rotation = Quaternion.identity;
+            }
 
             _aliveEnemies++;
-        }
 
+            _spawnEnemiesCount++;
+        }
         _isSpawning = false;
-        _spawnCoroutine = null;
+            _spawnCoroutine = null;
     }
 
     private void SpawnEliteEnemy()

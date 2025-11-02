@@ -33,9 +33,10 @@ public class Player : MonoBehaviour
     {
         
         _playerHealth -= damageAmount;
-        Debug.Log($"Player Health: {_playerHealth}");
+        //Debug.Log($"Player Health: {_playerHealth}");
         if (_playerHealth <= 0)
         {
+            GetComponent<MoveComponent>().SetIsPlayerAlive(false);
             StartCoroutine(PlayerDeath());
         }
         if (gameObject.activeSelf)
@@ -51,13 +52,25 @@ public class Player : MonoBehaviour
     }
 
 
-    private void OnCollisionEnter(Collision collision)
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.CompareTag("NextStageRecognition"))
+        {
+            Debug.Log("Player entered NextStageRecognition plane");
+            GameStateManager.Instance.IsInNextStageRecognitionPlane = true;
+            GameStateManager.Instance.CheckStageClear();
+        }
+    }
+    private void OnTriggerStay(Collider collision)
     {
         if (collision.gameObject.CompareTag("NextStageRecognition"))
         {
-            GameStateManager.Instance.IsInNextStageRecognitionPlane = true;
+            //GameStateManager.Instance.IsInNextStageRecognitionPlane = true;
+            GameStateManager.Instance.CheckStageClear();
         }
     }
+
+    //private void OnCollision
 
     private float _maxHealth;
     public void ResetPlayer()
@@ -65,6 +78,7 @@ public class Player : MonoBehaviour
         _currentAttackOneCooldown = 0f;
         _currentAttackTwoCooldown = 0f;
         _playerHealth = _maxHealth;
+        GetComponent<MoveComponent>().SetIsPlayerAlive(true);
         foreach (Transform child in transform)
         {
             if (child.name == "GreenArrow")
@@ -85,6 +99,10 @@ public class Player : MonoBehaviour
             _moveComponent.IsTakingDamage = false;
             _moveComponent.IsDodging = false;
             _moveComponent.StopCoroutinesForReset();
+            if (gameObject.activeSelf == true)
+            {
+                _moveComponent.StartCheckAndDodge();
+            }
         }
         //GameStateManager.Instance.IsPlayerAlive = true;
     }
@@ -99,6 +117,23 @@ public class Player : MonoBehaviour
         //StartCoroutine(PlayerDeathAnimation());
         gameObject.SetActive(false);
         GameStateManager.Instance.IsPlayerAlive = false;
+        GameStateManager.Instance._isBossAlive = false;
+        foreach (var var in FindObjectsOfType<Transform>())
+        {
+            if (var.name == "Warning")
+
+            {
+                var.gameObject.SetActive(false);
+            }
+
+        }
+            
+
+
+        if (FindObjectOfType<MapPatternTrigger>() != null)
+        {
+            FindObjectOfType<MapPatternTrigger>().gameObject.SetActive(false);
+        }
         foreach (var enemy in FindObjectsOfType<Enemy>())
         {
             enemy.StopAllCoroutines();

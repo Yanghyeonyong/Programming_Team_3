@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(InputComponent))] //InputComponent가 없으면 자동으로 추가해줌
 public class MoveComponent : MonoBehaviour
@@ -79,6 +79,15 @@ public class MoveComponent : MonoBehaviour
 
     private bool _flatMode = true;
     private bool _isChangingMode = false;
+
+    //죽음시 이동을 못하게
+    private bool _isPlayerAlive =true;
+
+    public void SetIsPlayerAlive(bool isAlive)
+    {
+        _isPlayerAlive = isAlive;
+    }
+
 
     //_isChangingMode = true;
 
@@ -413,13 +422,18 @@ public class MoveComponent : MonoBehaviour
     public void StopCoroutinesForReset()
     {
         StopAllCoroutines();
+        Debug.Log("DashStopped");
     }
 
+    public void StartCheckAndDodge()
+    {
+        StartCoroutine(CheckAndDodge());
+    }
 
     IEnumerator CheckAndDodge()
     {
 
-        while (true)
+        while (SceneManager.GetSceneByBuildIndex(1).isLoaded) //&& GameStateManager.Instance._currentPlayer.GetComponent<Player>().PlayerHealth >0)
         {
             yield return null;
             if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W))
@@ -616,7 +630,10 @@ public class MoveComponent : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.LeftShift) && _currentFlipCooldown <= 0 && _isDodging == false && _isAttacking == false && _isTakingDamage == false)
+
+       // _isPlayerAlive = GameStateManager.Instance.IsPlayerAlive;
+
+        if (Input.GetKeyDown(KeyCode.LeftShift) && _currentFlipCooldown <= 0 && _isDodging == false && _isAttacking == false && _isTakingDamage == false && _isPlayerAlive )
         {
             _isChangingMode = true;
             _currentFlipCooldown = _flipCooldown;
@@ -626,11 +643,11 @@ public class MoveComponent : MonoBehaviour
         _currentFlipCooldown -= Time.deltaTime;
 
 
-        if (_flatMode == true && _isChangingMode == false && _isDodging == false && _isAttacking == false && _isTakingDamage == false)
+        if (_flatMode == true && _isChangingMode == false && _isDodging == false && _isAttacking == false && _isTakingDamage == false && _isPlayerAlive)
         {
             MoveFlat();
         }
-        else if (_flatMode == false && _isChangingMode == false && _isDodging == false && _isAttacking == false && _isTakingDamage == false)
+        else if (_flatMode == false && _isChangingMode == false && _isDodging == false && _isAttacking == false && _isTakingDamage == false && _isPlayerAlive)
         {
 
             MoveLine();

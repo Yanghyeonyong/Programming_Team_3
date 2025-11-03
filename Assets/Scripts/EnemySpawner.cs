@@ -20,6 +20,11 @@ public class EnemySpawner : MonoBehaviour
     private bool _isEliteSpawned = false;
     private int _aliveEnemies = 0;
     private int _totalKillsInStage = 0;
+    //현용 추가 (엘리트 몬스터 한 스테이지에 여러마리 소환용)
+    private int _enemyKillsToCheckEliteSpawn = 0;
+    //스폰한 몬스터 수 세는 변수
+    private int _spawnEnemiesCount = 0;
+
 
     private List<int> _maxEnemiesByStage = new List<int>();
     //private List<Transform> _spawnPoints = new List<Transform>();
@@ -79,8 +84,10 @@ public class EnemySpawner : MonoBehaviour
     {
         _aliveEnemies = 0;
         _totalKillsInStage = 0;
+
         _enemyKillsToCheckEliteSpawn = 0;
         _isEliteSpawned = false;
+
 
         _spawnEnemiesCount = 0;
 
@@ -94,17 +101,24 @@ public class EnemySpawner : MonoBehaviour
     {
         _aliveEnemies = Mathf.Max(0, _aliveEnemies - 1);
         _totalKillsInStage++;
+        //양현용 추가
+        _enemyKillsToCheckEliteSpawn++;
 
         _enemyKillsToCheckEliteSpawn++;
 
         int maxEnemies = GetMaxEnemiesForStage(_gameState.CurrentStage) + (int)(GetMaxEnemiesForStage(_gameState.CurrentStage) / _killsRequiredForElite);
 
-        // 엘리트 적 스폰
+        //// 엘리트 적 스폰
         //if (!_isEliteSpawned && _totalKillsInStage >= _killsRequiredForElite)
         //{
         //    _isEliteSpawned = true;
+        //    _enemyKillsToCheckEliteSpawn = 0;
         //    SpawnEliteEnemy();
         //}
+
+        //양현용 추가 
+        // 엘리트 적 스폰
+
         if (_totalKillsInStage >= _killsRequiredForElite && _enemyKillsToCheckEliteSpawn >= _killsRequiredForElite)
         {
             _enemyKillsToCheckEliteSpawn = 0;
@@ -112,6 +126,7 @@ public class EnemySpawner : MonoBehaviour
             {
                 SpawnEliteEnemy();
             }
+
         }
 
 
@@ -130,6 +145,8 @@ public class EnemySpawner : MonoBehaviour
 
     private void StartSpawningForStage(int stageIndex)
     {
+
+
         if (!_isActive || _isSpawning) return;
 
         StopSpawnCoroutine();
@@ -145,11 +162,14 @@ public class EnemySpawner : MonoBehaviour
 
         while (_aliveEnemies < maxEnemies && _isActive && _spawnPoints.Count > 0)
         {
+
             if (_spawnEnemiesCount >= maxEnemies)
             {
                 break;
             }
             if (GameStateManager.Instance.CurrentStage == GameStateManager.Instance.MaxStageNumberPerStage.Count - 1)
+
+
             {
                 Debug.Log("보스방이다ㅏㅏㅏㅏ");
                 yield return new WaitForSeconds(_spawnDelay);
@@ -176,6 +196,7 @@ public class EnemySpawner : MonoBehaviour
             }
 
             _aliveEnemies++;
+
 
             _spawnEnemiesCount++;
         }

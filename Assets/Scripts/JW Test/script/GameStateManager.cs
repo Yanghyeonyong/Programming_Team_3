@@ -22,6 +22,7 @@ public class GameStateManager : Singleton<GameStateManager>
     [SerializeField] private AudioClip _deathScreenMusic;
 
 
+
     public bool _isBossAlive = false;
 
     //수현님 요청 사항
@@ -129,9 +130,11 @@ public class GameStateManager : Singleton<GameStateManager>
 
     public void CheckStageClear()
     {
+
         Debug.Log("Checking Stage Clear");
         Debug.Log(CurrentEnemyCount);
         if (_currentEnemyCount <= 0 && _isBossAlive == false)
+
         {
             //_isStageCleared = true;
             _nextStageDetector.SetActive(true);
@@ -171,7 +174,9 @@ public class GameStateManager : Singleton<GameStateManager>
                 //_isStageCleared = false;
                 _nextStageDetector.SetActive(false);
                 _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+
                 _goNext.SetActive(false);
+
             }
 
 
@@ -185,12 +190,14 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void LoadStage(int stageNumber)
     {
+
         if (stageNumber >= 1)
         {
             _stagePool[stageNumber - 1].SetActive(false);
         }
         OnStageChanged.Invoke(stageNumber);
         _stagePool[stageNumber].SetActive(true);
+
         _currentPlayer.transform.position = _defaultPlayerPosition.transform.position;
 
         //Load Stage Logic
@@ -227,11 +234,13 @@ public class GameStateManager : Singleton<GameStateManager>
 
         //_maxStageNumberPerStage[0] = 3;
         _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
+
         //Debug.Log("초기 적 수");
         //Debug.Log(_currentEnemyCount);
         _currentEnemyCount +=(int)(_currentEnemyCount/_killsRequiredForElite); //엘리트 몹 추가 반영
         //Debug.Log("엘리트 몹 추가 후 적 수");
         //Debug.Log(_currentEnemyCount);
+
 
         //_isStageCleared = false; //재확인용 초기화
         LoadStage(_currentStage);
@@ -241,6 +250,7 @@ public class GameStateManager : Singleton<GameStateManager>
 
     void SubsequentStart()
     {
+
         if (EnemySpawner.Instance != null)
         {
             _killsRequiredForElite = EnemySpawner.Instance._killsRequiredForElite;
@@ -275,6 +285,7 @@ public class GameStateManager : Singleton<GameStateManager>
             _currentPlayer.GetComponent<MoveComponent>().StartCheckAndDodge();
             Debug.Log("Dash On");
             Debug.Log("Subsequent Start - Player Instantiated");
+
         }
         _isPlayerAlive = true;
 
@@ -285,8 +296,10 @@ public class GameStateManager : Singleton<GameStateManager>
                        _audioSource = GetComponent<AudioSource>();
         }
         //_isGamePlayerSceneLoaded = true;
+
         
         StartCoroutine(WaitForTitleMusicToEnd());
+
 
         LoadStage(_currentStage);
         _currentEnemyCount = _maxEnemyNumberPerStage[_currentStage];
@@ -338,7 +351,9 @@ public class GameStateManager : Singleton<GameStateManager>
         {
             SubsequentStart();
 
+
             
+
             //_isGamePlayerSceneLoaded = true;
         }
     }
@@ -381,6 +396,7 @@ public class GameStateManager : Singleton<GameStateManager>
 
     //UserInterface는 알아서 본인을 여기에 담는다
     public GameObject _userInterface;
+
 
     private void Start()
     {
@@ -435,6 +451,7 @@ public class GameStateManager : Singleton<GameStateManager>
 
         SceneManager.sceneLoaded += OnGamePlaySceneLoad;
         SceneManager.sceneLoaded += OnGamePlaySceneDeload;
+
 
     }
 
@@ -550,9 +567,11 @@ public class GameStateManager : Singleton<GameStateManager>
 
         if (_restartRequested)
         {
+
             _stagePool[_currentStage].SetActive(false);
             _userInterface.SetActive(true);
             _currentStage = 0;
+
             _restartRequested = false;
             PauseUnpauseMusic();
             OnGameRestart.Invoke(true); //true means set Spawner Active

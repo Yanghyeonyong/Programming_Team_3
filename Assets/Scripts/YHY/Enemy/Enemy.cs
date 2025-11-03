@@ -45,6 +45,9 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float _attackDashCloseDistance = 0.65f;
 
 
+    [SerializeField] private bool _boss = false;
+    protected bool _isTakeDamage = false;
+
 
     //플레이어
     GameObject player;
@@ -58,7 +61,9 @@ public class Enemy : MonoBehaviour
     private bool _hitByWallUp = false;
 
     //레이캐스트 충돌 방지
-    protected int layerMask;
+
+    public int layerMask;
+
 
     private AudioSource _audioSource;
     //0 : 피격
@@ -68,7 +73,6 @@ public class Enemy : MonoBehaviour
     //4 : 특수 공격(스펠)
     [SerializeField] List<AudioClip> _audioClips;
 
-    //몬스터 종류 체크, 일반은 아무것도 체크 x
 
     [SerializeField] private bool _isElite = false;
     [SerializeField] private bool _boss = false;
@@ -87,14 +91,22 @@ public class Enemy : MonoBehaviour
         }
     }
 
+
+    //private void Awake()
+    //{
+    //    Init();
+    //}
     private void OnEnable()
     {
         StartCoroutine(FindPlayer());
+        //Init();
+
         _rigidbody = GetComponent<Rigidbody>();
         _enemyCollider = GetComponent<BoxCollider>();
         gameObject.GetComponent<BoxCollider>().enabled = true;
         _colliderSize = _enemyCollider.size.x;
         _moveDistancePreserve = _moveDistance;
+
     }
 
     IEnumerator FindPlayer()
@@ -153,13 +165,15 @@ public class Enemy : MonoBehaviour
             _animator = GetComponentInChildren<Animator>();
         }
         //대각선 방지
-        while (true && _curHp >0 )
+
+        while (true && _curHp >0)
+
         {
 
             Vector3 target = new Vector3(0, 0, 0);
 
             //벽에 부딪히지 않았을 경우
-            //공격 판정 중에도 움직이는것 방지를 위해 _onAttack = false일 때만 움직이도록
+
             if (_hitByWall == false && !CheckPlayer() && _onAttack == false)
             {
                 //
@@ -319,7 +333,9 @@ public class Enemy : MonoBehaviour
     {
         //Debug.Log("attack function called");
         //대각선 공격 방지 시도
-        if (CheckPlayer() && _boss==false) //&& (transform.position.z- player.transform.position.z)>= -0.05f&& (transform.position.z-player.transform.position.z) <=0.05f )
+
+        if (CheckPlayer() && _boss ==false) //&& (transform.position.z- player.transform.position.z)>= -0.05f&& (transform.position.z-player.transform.position.z) <=0.05f )
+
         {
             //Debug.Log("player in attack range");
             if (_enableAttack == true && _onStun == false)
@@ -359,7 +375,10 @@ public class Enemy : MonoBehaviour
                 }
             }
         }
-        else if (_boss == true)
+
+
+
+        else if (_boss ==true)
         {
 
             if (_enableAttack == true && _onStun == false)
@@ -388,6 +407,7 @@ public class Enemy : MonoBehaviour
                 }
             }
         }
+
     }
 
 
@@ -442,29 +462,54 @@ public class Enemy : MonoBehaviour
 
 
     public bool _isPlayerSpellAttack = false;
-    //[SerializeField] private int _attackFrame = 1;
-    [SerializeField] protected int _spellFrame = 1;
+
+    [SerializeField] private int _attackFrame = 1;
+    [SerializeField] public int _spellFrame = 1;
 
     //스펠 공격
-    IEnumerator PlayerSpellAttack()
+    public virtual IEnumerator PlayerSpellAttack()
+
     {
         _isPlayerSpellAttack = true;
 
-        //일정 프레임 후 플레이어가 여전히 공격범위에 있을 경우 피해 입음
+
+
+        //스펠 사운드
+        StartCoroutine(PlaySoundEffect(4));
+        Vector3 _tempPlayerLocation = player.transform.position;
+
         for (int i = 0; i < _spellFrame; i++)
         {
             yield return null;
         }
 
-        //스펠 사운드
-        StartCoroutine(PlaySoundEffect(4));
-
-        if (CheckPlayer())
-        {
-
-            _spellObject.transform.position = new Vector3(player.transform.position.x, _spellObject.transform.position.y, player.transform.position.z);
+        _spellObject.GetComponent<Spell>()._tempPlayerPosition = _tempPlayerLocation + new Vector3 (0,0.7f,0);
             _spellObject.SetActive(true);
-            player.GetComponent<Player>().TakeDamage(_spellAttack);
+        //yield return new WaitForSeconds(1f);
+        RaycastHit _spellhit;
+
+
+        while (_spellObject.GetComponent<Spell>()._isAtEndOfAnimation == false)
+        {
+            
+            yield return null;
+        }
+
+
+        if (Physics.Raycast(_tempPlayerLocation + new Vector3(0, 2f, 0), Vector3.down, out _spellhit, 3f, layerMask))
+        {
+            //Debug.Log("Spell Raycast Hit : " + _spellhit.collider.gameObject.name);
+            if (_spellhit.collider.gameObject.tag == "Player")
+            {
+                //Debug.Log("플레이어가 스펠 공격받았다");
+                //if (player != null)
+                //{
+                player.GetComponent<Player>().TakeDamage(_spellAttack);
+                //}
+            }
+            //_spellObject.transform.position = new Vector3(player.transform.position.x, _spellObject.transform.position.y, player.transform.position.z);
+            //player.GetComponent<Player>().TakeDamage(_spellAttack);
+
         }
         _onAttack = false;
         _isPlayerSpellAttack = false;
@@ -494,6 +539,9 @@ public class Enemy : MonoBehaviour
     IEnumerator PlayerAttack()
     {
         _isPlayerAttack = true;
+
+        _onAttack = true;
+
         //일정 프레임 후 플레이어가 여전히 공격범위에 있을 경우 피해 입음
         //for (int i = 0; i < _attackFrame; i++)
         //{
@@ -509,11 +557,7 @@ public class Enemy : MonoBehaviour
         StartCoroutine(AttackGettingCloseToPlayer());
         yield return new WaitForSeconds(_attackRayTiming);
 
-        //하단에 있을 경우 플레이어가 맞으면 소리가 발생하지 않아서 위로 이동
-        if (player.activeSelf)
-        {
-            StartCoroutine(PlaySoundEffect(3));
-        }
+
 
         if (CheckPlayer())
         {
@@ -526,12 +570,13 @@ public class Enemy : MonoBehaviour
         //yield return new WaitForSeconds(_attackRayTiming);
 
 
-        ////공격 사운드
-        //if (player.activeSelf)
-        //{
-        //    StartCoroutine(PlaySoundEffect(3));
-        //}
-            //transform.position = Vector3.MoveTowards(transform.position, player.transform.position, _moveSpeed);
+        //공격 사운드
+        if (player.activeSelf)
+        {
+            StartCoroutine(PlaySoundEffect(3));
+        }
+        //transform.position = Vector3.MoveTowards(transform.position, player.transform.position, _moveSpeed);
+
 
         //if (CheckPlayer())
         //{
@@ -542,12 +587,13 @@ public class Enemy : MonoBehaviour
         //make sure _isPlayerAttack switches to false
         //yield return new WaitForSeconds(_attackDelay);
         //_isPlayerAttack = false;
-        _onAttack = true;
 
+        //_onAttack = false;
     }
     
 
-    protected bool _isAttackDelay = false;
+    public bool _isAttackDelay = false;
+
     //공격 쿨타임 적용
     IEnumerator AttackDelay()
     {
@@ -563,7 +609,9 @@ public class Enemy : MonoBehaviour
         _enemyCollider.size = new Vector3(_colliderSize, _colliderSize, _colliderSize);
     }
 
-    protected bool _isSpellDelay = false;
+
+    private bool _isSpellDelay = false;
+
     //스펠 쿨타임 적용
     IEnumerator SpellDelay()
     {
@@ -579,11 +627,6 @@ public class Enemy : MonoBehaviour
         _isSpellDelay = false;
     }
 
-    //private void Update()
-    //{
-    //    //CheckPlayer();
-    //}
-
 
     protected bool _isTakeDamage=false;
 
@@ -591,6 +634,17 @@ public class Enemy : MonoBehaviour
     public void OnTakeDamage(float damage)
     {
         _isTakeDamage = true;
+
+
+    private void Update()
+    {
+        //CheckPlayer();
+    }
+
+
+    //데미지를 입음
+    public void OnTakeDamage(float damage)
+    {
 
         if (_isPlayerAttack)
         {
@@ -600,11 +654,10 @@ public class Enemy : MonoBehaviour
         if (_isPlayerSpellAttack)
         {
             StopCoroutine("PlayerSpellAttack");
-            //Debug.Log("플레 멈췄다");
-            if (_boss == false)
-            {
-                _enableSpell = true;
-            }
+
+            Debug.Log("플레 멈췄다");
+            _enableSpell = true;
+
             _enableAttack = true;
         }
         if (_isSpellDelay && _boss == false)
@@ -622,7 +675,9 @@ public class Enemy : MonoBehaviour
             _enableAttack = true;
         }
 
-        if (_boss)
+
+        if(_boss)
+
         {
             _spellObject.SetActive(false);
         }
@@ -646,7 +701,7 @@ public class Enemy : MonoBehaviour
 
         //isPlayerAttack false 변환시 얘는 동반해야됨
         _isPlayerAttack = false;
-        _enemyCollider.size = new Vector3(_colliderSize, _colliderSize, _colliderSize);
+        //_enemyCollider.size = new Vector3(_colliderSize, _colliderSize, _colliderSize);
 
         _isTakeDamage = false;
     }
@@ -669,8 +724,12 @@ public class Enemy : MonoBehaviour
     }
 
 
+    [SerializeField] private bool _isElite = false;
+    [SerializeField] private  bool _summon = false;
+
     //몬스터 사망
-    IEnumerator Die()
+    public virtual IEnumerator Die()
+
     {
         StopCoroutine(StunDelay());
         StopCoroutine(Hurt());
@@ -691,6 +750,13 @@ public class Enemy : MonoBehaviour
 
         float length = _animator.GetCurrentAnimatorStateInfo(0).length;
         yield return new WaitForSeconds(length);
+
+        if (GameStateManager.Instance != null && _boss ==true)
+        {
+            GameStateManager.Instance._isBossAlive = false;
+        }
+
+
 
         if (_summon == false)
         {
@@ -723,7 +789,8 @@ public class Enemy : MonoBehaviour
     }
 
 
-    protected IEnumerator PlaySoundEffect(int _audioNum)
+
+    public IEnumerator PlaySoundEffect(int _audioNum)
     {
 
         if (_audioClips[_audioNum] != null)
@@ -736,17 +803,15 @@ public class Enemy : MonoBehaviour
             }
             else
             {
-                if (_audioNum == 3)
-                {
-                    Debug.Log("공격 소리");
-                }
+
+
                 //if (_audioSource.clip = _audioClips[3])
                 //{
                 //    _audioSource.Stop();
                 //}
-                //_audioSource.PlayOneShot(_audioClips[_audioNum]);
-                _audioSource.clip = _audioClips[_audioNum];
-                _audioSource.Play();
+
+                _audioSource.PlayOneShot(_audioClips[_audioNum]);
+
             }
         }
     }

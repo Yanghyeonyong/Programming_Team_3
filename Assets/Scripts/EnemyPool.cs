@@ -9,10 +9,15 @@ public class EnemyPool : MonoBehaviour
     [Header("Prefab & Pool Settings")]
     [SerializeField] private GameObject _enemyPrefab;
     [SerializeField] private GameObject _eliteEnemyPrefab;
+
+    [SerializeField] private GameObject _bossEnemyPrefab;
+
     [SerializeField] private int _poolSize = 30; // 임시크기
 
     private Queue<GameObject> _enemyPool = new Queue<GameObject>();
     private Queue<GameObject> _eliteEnemyPool = new Queue<GameObject>();
+
+    private Queue<GameObject> _bossEnemyPool = new Queue<GameObject>();
 
     private void Awake()
     {
@@ -44,10 +49,21 @@ public class EnemyPool : MonoBehaviour
         }
     }
 
+
     // 일반 적 꺼내오기
     public GameObject GetEnemy()
     {
         GameObject obj = (_enemyPool.Count > 0) ? _enemyPool.Dequeue() : Instantiate(_enemyPrefab);
+
+    //대각선 공격방지 위해 isntatiate 위치를 좀멀히 해놔야됨
+
+    
+
+    // 일반 적 꺼내오기
+    public GameObject GetEnemy()
+    {
+        GameObject obj = (_enemyPool.Count > 0) ? _enemyPool.Dequeue() : Instantiate(_enemyPrefab, new Vector3(0,-10f,0),_enemyPrefab.transform.rotation);
+
         obj.SetActive(true);
         return obj;
     }
@@ -55,7 +71,10 @@ public class EnemyPool : MonoBehaviour
     // 엘리트 적 꺼내오기
     public GameObject GetEliteEnemy()
     {
-        GameObject obj = (_eliteEnemyPool.Count > 0) ? _eliteEnemyPool.Dequeue() : Instantiate(_eliteEnemyPrefab);
+
+
+        GameObject obj = (_eliteEnemyPool.Count > 0) ? _eliteEnemyPool.Dequeue() : Instantiate(_eliteEnemyPrefab, new Vector3(0, -10f, 0), _eliteEnemyPrefab.transform.rotation);
+
         obj.SetActive(true);
         return obj;
     }
@@ -75,4 +94,22 @@ public class EnemyPool : MonoBehaviour
         if (!_eliteEnemyPool.Contains(obj))
             _eliteEnemyPool.Enqueue(obj);
     }
+
+
+
+    public GameObject GetBossEnemy()
+    {
+        GameObject obj = (_bossEnemyPool.Count > 0) ? _bossEnemyPool.Dequeue() : Instantiate(_bossEnemyPrefab, new Vector3(0, -10f, 0), _bossEnemyPrefab.transform.rotation);
+        obj.SetActive(true);
+        GameStateManager.Instance._isBossAlive = true;
+        return obj;
+    }
+
+    public void ReturnBossEnemy(GameObject obj)
+    {
+        obj.SetActive(false);
+        if (!_bossEnemyPool.Contains(obj))
+            _bossEnemyPool.Enqueue(obj);
+    }
 }
+

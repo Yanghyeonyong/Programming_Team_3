@@ -63,3 +63,4 @@ public class BossSecondSpell : MonoBehaviour
         CancelSpell();
     }
 }
+

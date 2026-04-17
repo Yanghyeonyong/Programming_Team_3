@@ -59,6 +59,33 @@ This project currently behaves like a **modular game loop with a centralized sta
 
 ### Diagram (current interaction model)
 
+```mermaid
+flowchart TB
+  subgraph Core
+    GSM["GameStateManager\n(Singleton / UnityEvent hub)"]
+  end
+
+  subgraph Spawning
+    ESP["EnemySpawner\n(stage-driven coroutine)"]
+    EPOOL["EnemyPool\n(prewarmed queues)"]
+  end
+
+  subgraph Actors
+    P[Player]
+    E[Enemy/Boss/Elite]
+  end
+
+  subgraph UI
+    UIG["UserInterfaceGame\n(health / stage UI)"]
+  end
+
+  GSM -- OnStageChanged / OnEnemyDied --> ESP
+  ESP -- GetEnemy/GetElite/GetBoss --> EPOOL
+  EPOOL --> E
+  UIG -. "FindObjectOfType<Player>()" .-> P
+  P --> UIG
+```
+
 ## Architecture Decision Records (ADRs)
 
 ### ADR-0001 — Enemy Object Pooling (Allocation Control)
@@ -93,10 +120,6 @@ This project currently behaves like a **modular game loop with a centralized sta
 ## License
 
 Add a license file if this repository is intended for public distribution.
-
-
-## 한국어 (copyable `README.ko.md`)
-
 
 # Programming_Team_3 (Unity)
 
@@ -159,6 +182,34 @@ Add a license file if this repository is intended for public distribution.
 - **UI 모듈**: `UserInterfaceGame` — 플레이어 UI 바인딩(현재는 씬 검색 기반)
 
 ### 다이어그램 (현재 상호작용 모델)
+
+```mermaid
+flowchart TB
+  subgraph Core
+    GSM["GameStateManager\n(Singleton / UnityEvent hub)"]
+  end
+
+  subgraph Spawning
+    ESP["EnemySpawner\n(stage-driven coroutine)"]
+    EPOOL["EnemyPool\n(prewarmed queues)"]
+  end
+
+  subgraph Actors
+    P[Player]
+    E[Enemy/Boss/Elite]
+  end
+
+  subgraph UI
+    UIG["UserInterfaceGame\n(health / stage UI)"]
+  end
+
+  GSM -- OnStageChanged / OnEnemyDied --> ESP
+  ESP -- GetEnemy/GetElite/GetBoss --> EPOOL
+  EPOOL --> E
+  UIG -. "FindObjectOfType<Player>()" .-> P
+  P --> UIG
+```
+
 ## Architecture Decision Records (ADRs)
 
 ### ADR-0001 — 적 오브젝트 풀링 (할당 제어)
@@ -193,57 +244,3 @@ Add a license file if this repository is intended for public distribution.
 ## 라이선스
 
 공개 배포 예정이면 라이선스 파일을 추가하세요.
-
-```mermaid
-flowchart TB
-  subgraph Core
-    GSM[GameStateManager<br/>(Singleton + UnityEvent hub)]
-  end
-
-  subgraph Spawning
-    ESP[EnemySpawner<br/>(stage-driven coroutine)]
-    EPOOL[EnemyPool<br/>(prewarmed queues)]
-  end
-
-  subgraph Actors
-    P[Player]
-    E[Enemy/Boss/Elite]
-  end
-
-  subgraph UI
-    UIG[UserInterfaceGame<br/>(health + stage UI)]
-  end
-
-  GSM -- OnStageChanged / OnEnemyDied --> ESP
-  ESP -- GetEnemy/GetElite/GetBoss --> EPOOL
-  EPOOL --> E
-  UIG -. FindObjectOfType<Player>() .-> P
-  P --> UIG
-
-
-
-```mermaid
-flowchart TB
-  subgraph Core
-    GSM[GameStateManager<br/>(Singleton + UnityEvent hub)]
-  end
-
-  subgraph Spawning
-    ESP[EnemySpawner<br/>(stage-driven coroutine)]
-    EPOOL[EnemyPool<br/>(prewarmed queues)]
-  end
-
-  subgraph Actors
-    P[Player]
-    E[Enemy/Boss/Elite]
-  end
-
-  subgraph UI
-    UIG[UserInterfaceGame<br/>(health + stage UI)]
-  end
-
-  GSM -- OnStageChanged / OnEnemyDied --> ESP
-  ESP -- GetEnemy/GetElite/GetBoss --> EPOOL
-  EPOOL --> E
-  UIG -. FindObjectOfType<Player>() .-> P
-  P --> UIG
